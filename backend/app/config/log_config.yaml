@@ -1,0 +1,32 @@
+version: 1
+formatters:
+  default:
+    format: "%(asctime)s - %(levelname)s - %(message)s"
+    datefmt: "%Y-%m-%d %H:%M:%S"
+
+handlers:
+  file:
+    class: logging.FileHandler
+    level: INFO
+    formatter: default
+    filename: uvicorn.log
+
+  console:
+    class: logging.StreamHandler
+    level: INFO
+    formatter: default
+
+loggers:
+  uvicorn:
+    level: INFO
+    handlers: [file, console]
+    propagate: False
+
+  uvicorn.access:
+    level: INFO
+    handlers: [file, console]
+    propagate: False
+
+root:
+  level: INFO
+  handlers: [file, console]

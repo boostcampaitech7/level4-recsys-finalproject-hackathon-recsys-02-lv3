@@ -1,0 +1,12 @@
+from pydantic_settings import BaseSettings
+
+class Settings(BaseSettings):
+    CLIENT_ID: str
+    CLIENT_SECRET: str
+    REDIRECT_URI: str
+    SPOTIFY_AUTHENTICATION_URL: str
+    SPOTIFY_API_URL: str
+
+    class Config:
+        env_file = "app/config/.env"
+        env_file_encoding = 'utf-8'
