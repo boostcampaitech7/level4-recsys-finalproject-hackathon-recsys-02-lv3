@@ -67,20 +67,25 @@ async def get_user(code: str = Query(..., description="Authorization code from S
                     user_img_url = images[0]["url"]
                 else:
                     user_img_url = None
+                existing_user = db.query(User).filter(User.spotify_id == spotify_id).first()
+                if existing_user:
+                    existing_user.access_token = access_token
+                    existing_user.refresh_token = refresh_token
+                    db.commit()
+                    db.refresh(existing_user)
+                    frontend_url = f"http://localhost:5173/authorized?user_id={existing_user.user_id}&user_img_url={user_img_url}"
+                    return RedirectResponse(frontend_url)
+                else:
+                    # 새 사용자 추가
+                    new_user = User(spotify_id=spotify_id, access_token=access_token, refresh_token=refresh_token)
+                    db.add(new_user)
+                    db.commit()
+                    db.refresh(new_user)
+                    frontend_url = f"http://localhost:5173/authorized?user_id={new_user.user_id}&user_img_url={user_img_url}"
+                    return RedirectResponse(frontend_url)
             else:
                 spotify_id = None
                 user_img_url = None
-
-            existing_user = db.query(User).filter(User.spotify_id == spotify_id).first()
-            if existing_user:
-                existing_user.access_token = access_token
-                existing_user.refresh_token = refresh_token
-                db.commit()
-                db.refresh(existing_user)
-                frontend_url = f"http://localhost:5173?user_id={existing_user.user_id}&user_img_url={user_img_url}"
-                return RedirectResponse(frontend_url)
-            else:
-                # 새 사용자 추가
                 new_user = User(spotify_id=spotify_id, access_token=access_token, refresh_token=refresh_token)
                 db.add(new_user)
                 db.commit()
