@@ -10,7 +10,7 @@ class User(Base):
     __tablename__ = "users"
 
     user_id = Column(Integer, primary_key=True, autoincrement=True)
-    spotify_id = Column(String)
+    spotify_id = Column(String, nullable=True)
     access_token = Column(String)
     refresh_token = Column(String)
 

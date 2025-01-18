@@ -29,7 +29,7 @@ async def login():
     )
     return RedirectResponse(url=auth_url)
 
-@router.get("/callback", response_model=GetUserResponse)
+@router.get("/callback")
 async def get_user(code: str = Query(..., description="Authorization code from Spotify"), \
                         db: Session = Depends(get_db)):
     accesstoken_request = SpotifyTokenRequest(
@@ -67,29 +67,25 @@ async def get_user(code: str = Query(..., description="Authorization code from S
                     user_img_url = images[0]["url"]
                 else:
                     user_img_url = None
-                existing_user = db.query(User).filter(User.spotify_id == spotify_id).first()
-                if existing_user:
-                    existing_user.access_token = access_token
-                    existing_user.refresh_token = refresh_token
-                    db.commit()
-                    db.refresh(existing_user)
-                    return JSONResponse(status_code=201, content=GetUserResponse(
-                        message="User updated successfully", 
-                        user_id=existing_user.user_id, 
-                        user_img_url=user_img_url).dict()
-                    )
-                else:
-                    # 새 사용자 추가
-                    new_user = User(spotify_id=spotify_id, access_token=access_token, refresh_token=refresh_token)
-                    db.add(new_user)
-                    db.commit()
-                    db.refresh(new_user)
-                    return JSONResponse(status_code=200, content=GetUserResponse(
-                        message="User registered successfully", 
-                        user_id=new_user.user_id, 
-                        user_img_url=user_img_url).dict()
-                    )
             else:
-                raise HTTPException(status_code=401, detail="cannot access user info from spotify")
+                spotify_id = None
+                user_img_url = None
+
+            existing_user = db.query(User).filter(User.spotify_id == spotify_id).first()
+            if existing_user:
+                existing_user.access_token = access_token
+                existing_user.refresh_token = refresh_token
+                db.commit()
+                db.refresh(existing_user)
+                frontend_url = f"http://localhost:5173?user_id={existing_user.user_id}&user_img_url={user_img_url}"
+                return RedirectResponse(frontend_url)
+            else:
+                # 새 사용자 추가
+                new_user = User(spotify_id=spotify_id, access_token=access_token, refresh_token=refresh_token)
+                db.add(new_user)
+                db.commit()
+                db.refresh(new_user)
+                frontend_url = f"http://localhost:5173?user_id={new_user.user_id}&user_img_url={user_img_url}"
+                return RedirectResponse(frontend_url)
         else:
             raise HTTPException(status_code=404, detail="failed to get access token from spotify")
