@@ -1,0 +1,11 @@
+import { createContext } from "~/libs/context";
+
+export interface UserInfo {
+  id?: number;
+  profileImage?: string;
+}
+
+export const [UserInfoProvider, useUserInfoContext] = createContext<{
+  userInfo: UserInfo;
+  setUserInfo: (value: UserInfo) => void;
+}>("UserInfo");
