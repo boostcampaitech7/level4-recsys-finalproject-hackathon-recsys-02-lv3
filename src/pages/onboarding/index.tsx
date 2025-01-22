@@ -1,34 +1,24 @@
-import { useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import axios from "axios";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { css } from "@emotion/react";
-
 import { Tag } from "~/components/OnboardTag";
 import { Button } from "~/components/Button";
-import { BASE_URL } from "~/libs/api";
-import { typedLocalStorage } from "~/utils/localStorage";
-import { useUserInfoContext } from "~/utils/userInfoContext";
+import { useUserId } from "~/utils/userInfoContext";
 import { Spacing } from "~/components/Spacing";
+import { AuthGuard } from "~/components/AuthGuard";
+import { useMutation } from "@tanstack/react-query";
+import { postOnboardingMutation } from "~/remotes";
 
-export const Component = () => {
+interface Props {
+  selected: string[];
+  handleTagClick: (tag: string) => void;
+}
+
+const OnBoardingPage = () => {
   const navigate = useNavigate();
-  const { setUserInfo } = useUserInfoContext("onboarding");
-  const [searchParams] = useSearchParams();
-  const id = searchParams.get("user_id");
-  const profileImage = searchParams.get("user_img_url") ?? undefined;
-
-  useEffect(() => {
-    console.log(id, profileImage);
-    if (id == null) {
-      navigate("/");
-    } else {
-      typedLocalStorage.set("user_id", Number(id));
-      typedLocalStorage.set("user_img_url", String(profileImage));
-      setUserInfo({ id: Number(id), profileImage });
-    }
-  }, [id, profileImage]);
-
   const [selected, setSelected] = useState<string[]>([]);
+  const id = useUserId();
+  const { mutateAsync } = useMutation(postOnboardingMutation);
 
   const handleTagClick = (tag: string) => {
     setSelected((prevSelected) => {
@@ -40,76 +30,40 @@ export const Component = () => {
     });
   };
 
-  const tags = [
-    "열정적인",
-    "아날로그 감성",
-    "대중적인",
-    "독특한",
-    "리드미컬한",
-    "감성적인",
-    "스트리트 감성",
-    "신나는",
-    "잔잔한",
-    "진솔한",
-    "영국적인",
-    "서정적인",
-    "고급스러운",
-    "편안한",
-    "세련된",
-    "영화같은",
-    "집중이 잘 되는",
-    "거친",
-    "트렌디한",
-    "스페인풍의",
-  ];
-
-  interface Props {
-    selected: string[];
-    handleTagClick: (tag: string) => void;
-  }
-
-  const TagList = ({ selected, handleTagClick }: Props) => {
-    return (
-      <div css={tagListCSS}>
-        {tags.map((tag) => (
-          <Tag
-            key={tag}
-            onClick={() => handleTagClick(`#${tag}`)}
-            isSelected={selected.includes(`#${tag}`)}
-          >
-            #{tag}
-          </Tag>
-        ))}
-      </div>
-    );
-  };
-
-  const sendData = () => {
-    let data = {
-      user_id: Number(id),
-      tags: selected,
-    };
-    axios.post(`${BASE_URL}/onboarding`, data, {
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-  };
-
   return (
     <>
-      <Spacing size={8} />
+      <Spacing size={24} />
+      <div style={{ textAlign: "center", padding: "15px" }}>
+        매장 분위기와 어울리는 태그를 선택해주세요.
+      </div>
       <TagList selected={selected} handleTagClick={handleTagClick} />
-
+      <Spacing size={24} />
       <Button
-        onClick={() => {
-          sendData();
+        css={completeCSS}
+        onClick={async () => {
+          await mutateAsync({ user_id: id, tags: selected });
           navigate("/home");
         }}
       >
-        <div>가게 무드 완성하기</div>
+        가게 무드 완성하기
       </Button>
     </>
+  );
+};
+
+const TagList = ({ selected, handleTagClick }: Props) => {
+  return (
+    <div css={tagListCSS}>
+      {tags.map((tag) => (
+        <Tag
+          key={tag}
+          onClick={() => handleTagClick(`${tag}`)}
+          isSelected={selected.includes(`${tag}`)}
+        >
+          #{tag}
+        </Tag>
+      ))}
+    </div>
   );
 };
 
@@ -117,4 +71,44 @@ const tagListCSS = css({
   display: "flex",
   flexWrap: "wrap",
   gap: 8,
+  padding: 20,
+});
+
+const tags = [
+  "열정적인",
+  "아날로그 감성",
+  "대중적인",
+  "독특한",
+  "리드미컬한",
+  "감성적인",
+  "스트리트 감성",
+  "신나는",
+  "잔잔한",
+  "진솔한",
+  "영국적인",
+  "서정적인",
+  "고급스러운",
+  "편안한",
+  "세련된",
+  "영화같은",
+  "집중이 잘 되는",
+  "거친",
+  "트렌디한",
+  "스페인풍의",
+];
+
+export const Component = () => (
+  <AuthGuard>
+    <OnBoardingPage />
+  </AuthGuard>
+);
+
+const completeCSS = css({
+  width: "calc(100% - 60px)" /* 양쪽에 20px씩 여백 */,
+  maxWidth: 600,
+  padding: "15px",
+  margin: "0 auto",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
 });

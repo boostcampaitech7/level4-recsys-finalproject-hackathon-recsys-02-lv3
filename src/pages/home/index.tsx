@@ -1,31 +1,18 @@
 import { css } from "@emotion/react";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { AuthGuard } from "~/components/AuthGuard";
 import FileUploadButton from "~/components/FileUploadButton";
 import { ProfileImage } from "~/components/ProfileImage";
 import { Spacing } from "~/components/Spacing";
 import { playlistQuery } from "~/remotes";
-import useAuthorize from "~/utils/useAuthorize";
-import { useUserInfoContext } from "~/utils/userInfoContext";
+import { useUserId } from "~/utils/userInfoContext";
 
-export const Component = () => {
+const HomePage = () => {
   const navigate = useNavigate();
-  useAuthorize();
-  const { userInfo } = useUserInfoContext("useAuthorize");
-  const { id } = userInfo;
+  const userId = useUserId();
+  const { data } = useQuery(playlistQuery(userId));
 
-  const { data } = useQuery({
-    ...playlistQuery(Number(id)),
-    enabled: id != null,
-  });
-
-  useEffect(() => {
-    if (id == null) {
-      navigate("/");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
   return (
     <>
       <div>
@@ -79,3 +66,9 @@ export const Component = () => {
     </>
   );
 };
+
+export const Component = () => (
+  <AuthGuard>
+    <HomePage />
+  </AuthGuard>
+);

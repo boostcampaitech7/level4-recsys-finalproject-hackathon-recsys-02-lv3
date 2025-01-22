@@ -7,13 +7,16 @@ const tagStyle = (isSelected: boolean) =>
   css({
     width: "fit-content",
     margin: "0 auto",
+    padding: 10,
     height: 40,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontWeight: 600,
+    fontWeight: 400,
+    fontSize: 15,
     border: "1px solid",
-    borderRadius: 7,
+    borderRadius: 10,
+    borderWidth: 1,
     borderColor: "#1ED760",
     backgroundColor: isSelected ? "#1ED760" : rgba("#C3FFC3", 0.75),
   });
