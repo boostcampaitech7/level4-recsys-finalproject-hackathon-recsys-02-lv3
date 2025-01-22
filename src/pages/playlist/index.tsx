@@ -13,6 +13,7 @@ import { TrackItem } from "~/components/TrackItem";
 import { FullScreenLoader } from "~/components/FullScreenLoader";
 import { Button } from "~/components/Button";
 import { Spacing } from "~/components/Spacing";
+import { RefreshButton } from "~/components/RefreshButton";
 
 const PlaylistPage = () => {
   const navigate = useNavigate();
@@ -20,10 +21,30 @@ const PlaylistPage = () => {
   if (playlistId == null) return;
   const id = useUserId();
 
-  const { data, isLoading } = useQuery(playlistTracksQuery(playlistId, id));
-  const { mutateAsync } = useMutation(postTrackMutation(playlistId, id));
-
   const [selected, setSelected] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState<number>(0);
+
+  const { data = [], isLoading } = useQuery(
+    playlistTracksQuery(playlistId, id)
+  );
+  const { mutateAsync } = useMutation(postTrackMutation(playlistId, id));
+  if (isLoading) {
+    return <FullScreenLoader />;
+  }
+
+  const itemsPerPage = 10;
+
+  const currentTrack = data.slice(
+    currentPage * itemsPerPage,
+    (currentPage + 1) * itemsPerPage
+  );
+
+  const handleNextPage = () => {
+    if ((currentPage + 1) * itemsPerPage < data.length) {
+      setCurrentPage((prev) => prev + 1);
+    }
+  };
+
   const handleSelectChange = (trackId: string) => {
     setSelected((prevSelected) => {
       if (prevSelected.includes(trackId)) {
@@ -33,10 +54,6 @@ const PlaylistPage = () => {
       }
     });
   };
-
-  if (isLoading) {
-    return <FullScreenLoader />;
-  }
 
   const getPayload = (): PostTrackRequest[] => {
     return selected
@@ -52,8 +69,16 @@ const PlaylistPage = () => {
 
   return (
     <>
+      <Spacing size={15} />
       <div css={css({ padding: "0px 24px" })}>
-        {data?.map((v) => (
+        <RefreshButton
+          onClick={handleNextPage}
+          disabled={(currentPage + 1) * itemsPerPage >= data.length}
+          style={{ cursor: "pointer" }}
+        >
+          새로운 추천 결과 받기
+        </RefreshButton>
+        {currentTrack?.map((v) => (
           <TrackItem
             key={v.track_id}
             trackImage={v.track_img_url}
@@ -72,6 +97,7 @@ const PlaylistPage = () => {
           await mutateAsync({
             items: getPayload(),
           });
+          // pos & neg POST
           navigate("/home");
         }}
       >
