@@ -16,37 +16,6 @@ from dags.sql import user_embedding, track_embedding
 from LightGCN.code.model import LightGCN
 from LightGCN.code.dataloader import Loader
 
-# User Embedding 생성
-def generate_user_embeddings(**context):
-    n_samples = 200
-    embeddings_data = []
-    
-    for i in range(n_samples):
-        embedding = np.random.randn(64)
-        embedding = embedding / np.linalg.norm(embedding)
-        embeddings_data.append({
-            'user_org_id': i+1,
-            'user_id': i+1000,
-            'user_emb': embedding.tolist()
-        })
-    
-    context['task_instance'].xcom_push(key='user_embeddings_data', value=embeddings_data)
-
-
-# Track Embedding 생성
-def generate_track_embeddings(**context):
-    n_samples = 150  # 트랙 수는 다를 수 있음
-    embeddings_data = []
-    
-    for i in range(n_samples):
-        embedding = np.random.randn(64)
-        embedding = embedding / np.linalg.norm(embedding)
-        embeddings_data.append({
-            'track_id': i+1,
-            'track_emb': embedding.tolist()
-        })
-    
-    context['task_instance'].xcom_push(key='track_embeddings_data', value=embeddings_data)
 
 def get_user_item_embeddding(**context):
     ### config ###
@@ -179,15 +148,9 @@ with DAG('user_embedding_update_dag',
         task_id="start_task"
     )
 
-    generate_user_embeddings_task = PythonOperator(
-        task_id='generate_user_embeddings_task',
-        python_callable=generate_user_embeddings,
-        provide_context=True
-    )
-
-    generate_track_embeddings_task = PythonOperator(
-        task_id='generate_track_embeddings_task',
-        python_callable=generate_track_embeddings,
+    get_user_item_embeddding_task = PythonOperator(
+        task_id='get_user_item_embeddding_task',
+        python_callable=get_user_item_embeddding,
         provide_context=True
     )
 
@@ -225,11 +188,11 @@ with DAG('user_embedding_update_dag',
         task_id = "end_task"
     )
 
-    start_task >> generate_user_embeddings_task
-    start_task >> generate_track_embeddings_task
+    start_task >> get_user_item_embeddding_task
+    start_task >> get_user_item_embeddding_task
 
-    generate_user_embeddings_task >> load_to_user_temp_table_task >> upsert_user_embeddings_task
-    generate_track_embeddings_task >> load_to_track_temp_table_task >> upsert_track_embeddings_task
+    get_user_item_embeddding_task >> load_to_user_temp_table_task >> upsert_user_embeddings_task
+    get_user_item_embeddding_task >> load_to_track_temp_table_task >> upsert_track_embeddings_task
 
     upsert_user_embeddings_task >> delete_xcom_task
     upsert_track_embeddings_task >> delete_xcom_task
