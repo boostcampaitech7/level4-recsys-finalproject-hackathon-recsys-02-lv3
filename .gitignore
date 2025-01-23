@@ -1,4 +1,8 @@
 .venv/
 data/
 __pycache__/
-*.py[cod]
+*.py[cod]=
+.github/
+.cache/
+.myenv/
+*.pyc
