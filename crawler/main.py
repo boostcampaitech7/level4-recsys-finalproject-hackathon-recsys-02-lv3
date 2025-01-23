@@ -31,3 +31,4 @@ if __name__ == "__main__":
 
     for table in table_list:
         load_to_db(table)
+        
