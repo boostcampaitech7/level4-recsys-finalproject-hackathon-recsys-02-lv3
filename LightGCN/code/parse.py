@@ -44,7 +44,7 @@ def parse_args():
     parser.add_argument('--model', type=str, default='lgn', help='rec-model, support [mf, lgn]')
 
     # Jupyter 노트북 플래그 무시
-    if 'ipykernel_launcher' in sys.argv[0]:
-        sys.argv = ['main']  # sys.argv 초기화
+    if 'ipykernel_launcher' in sys.argv[0] or 'airflow' in sys.argv[0]:
+        return parser.parse_args([])
 
     return parser.parse_args()
