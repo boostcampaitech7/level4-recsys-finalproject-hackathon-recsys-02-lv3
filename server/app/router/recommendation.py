@@ -107,27 +107,28 @@ async def test_get_recommendation_by_playlists_100(playlist_id: str, user_id: in
         )
         if response.status_code == 200:
             recommendations = []
-            index = []
-            for i in range(1, 11):
-                index.extend([i] * 10)
+            index = [i for i in range(1, 101)]
             query = text("""
                     SELECT 
-                    t.track AS track_name, 
-                    STRING_AGG(a.artist, ' & ' ORDER BY a.artist) AS artist_names,
-                    t.img_url
+                        t.track_id,
+                        t.track AS track_name, 
+                        STRING_AGG(a.artist, ' & ' ORDER BY a.artist) AS artist_names,
+                        t.img_url
                     FROM track t
                     JOIN track_artist ta ON ta.track_id = t.track_id
                     JOIN artist a ON ta.artist_id = a.artist_id
-                    WHERE t.track_id IN (:track_ids)
-                    GROUP BY t.track, t.img_url;
+                    WHERE t.track_id = ANY(:track_id)  -- track_id 배열
+                    GROUP BY t.track, t.img_url, t.track_id
+                    ORDER BY ARRAY_POSITION(:track_id, t.track_id);
                     """)
-            results = db.execute(query, {"track_id": index}).fetchone()
-            recommendations.append(Track(
-                track_id=i, 
-                track_name=result[0],
-                artists=[Artist(artist_name=result[1]).dict()],
-                track_img_url=result[2],
-            ).dict() for result in results)
+            results = db.execute(query, {"track_id": index}).fetchall() 
+            for result in results:
+                recommendations.append(Track(
+                    track_id=result[0],
+                    track_name=result[1],
+                    artists=[Artist(artist_name=artist).dict() for artist in result[2].split(' & ')],
+                    track_img_url=result[3],
+                ).dict())
 
             return JSONResponse(status_code=200, content=recommendations)
         else:
