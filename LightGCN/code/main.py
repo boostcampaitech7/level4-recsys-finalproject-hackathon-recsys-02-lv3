@@ -12,10 +12,9 @@ utils.set_seed(world.seed)
 print(">>SEED:", world.seed)
 # ==============================
 import register
-from register import dataset
 from utils import EarlyStopping
 
-Recmodel = register.MODELS[world.model_name](world.config, dataset)
+Recmodel = register.MODELS[world.model_name](world.config, register.DATA)
 Recmodel = Recmodel.to(world.device)
 bpr = utils.BPRLoss(Recmodel, world.config)
 
@@ -53,12 +52,12 @@ try:
         start = time.time()
         if epoch %10 == 0:
             cprint("[TEST]")
-            Procedure.Test(dataset, Recmodel, epoch, w, world.config['multicore'])
-        output_information, avr_loss = Procedure.BPR_train_original(dataset, Recmodel, bpr, epoch, neg_k=Neg_k,w=w)
+            Procedure.Test(register.DATA, Recmodel, epoch, w, world.config['multicore'])
+        output_information, avr_loss = Procedure.BPR_train_original(register.DATA, Recmodel, bpr, epoch, neg_k=Neg_k,w=w)
         if epoch % 5 == 0:
             print(f'EPOCH[{epoch+1}/{world.TRAIN_epochs}] {output_information}')
         torch.save(Recmodel.state_dict(), weight_file)
-        # early stopping 구현
+        # early stopping -> 10 epoch 동안 loss 값이 줄어들지 않을 경우 학습 종료
         es(avr_loss)
         if es.early_stop:
             print(f'Early Stopping at {epoch+1}, avr_loss:{avr_loss}')

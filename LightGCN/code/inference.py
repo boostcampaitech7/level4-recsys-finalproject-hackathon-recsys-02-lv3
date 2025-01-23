@@ -1,6 +1,6 @@
 import torch
 import argparse
-
+import world
 from dataloader import Loader
 from model import LightGCN
 
@@ -35,12 +35,13 @@ if __name__=='__main__':
     config['bigdata'] = False
     config['shuffle'] = 'shuffle'
 
-    dataset = Loader(path="../data/spotify")
+    dataset = Loader(path=world.DATA_PATH)
     model = LightGCN(config, dataset)
-    checkpoint = torch.load('./checkpoints/lgn-spotify-3-64-shuffle.pth.tar', map_location=torch.device('cuda'))
+    checkpoint = torch.load(world.FILE_PATH+"/best_model.pth", map_location=torch.device('cuda'))
     model.load_state_dict(checkpoint)
-
+    
     user_embs, item_embs = model.embedding_user.weight, model.embedding_item.weight
+    print(user_embs.shape, item_embs.shape)
     ratings = torch.matmul(user_embs, item_embs.T)
     
     for uid in range(len(user_embs)):
