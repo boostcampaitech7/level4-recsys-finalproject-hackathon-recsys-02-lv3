@@ -6,6 +6,10 @@ class Settings(BaseSettings):
     REDIRECT_URI: str
     SPOTIFY_AUTHENTICATION_URL: str
     SPOTIFY_API_URL: str
+    POSTGRES_DATABASE_URL: str
+    EMBEDDING_DATABASE_URL: str
+    MONGODB_DATABASE_URL: str
+    MODEL_API_URL: str
 
     class Config:
         env_file = "app/config/.env"

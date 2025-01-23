@@ -1,0 +1,19 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from app.router import auth, playlist, recommendation, log
+
+app = FastAPI()
+
+# CORS 설정
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],                     
+    allow_headers=["*"],                     
+)
+
+app.include_router(auth.router)
+app.include_router(playlist.router)
+app.include_router(recommendation.router)
+app.include_router(log.router)
