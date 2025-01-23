@@ -5,37 +5,33 @@ Xiangnan He et al. LightGCN: Simplifying and Powering Graph Convolution Network 
 
 @author: Jianbai Ye (gusye@mail.ustc.edu.cn)
 '''
-import world
 import torch
-from torch import nn, optim
+from torch import optim
 import numpy as np
-from torch import log
 from dataloader import BasicDataset
 from time import time
-from model import LightGCN
-from model import PairWiseModel
-from sklearn.metrics import roc_auc_score
-import random
+from datetime import datetime
+from model import LightGCN, PairWiseModel
 import os
-try:
-    from cppimport import imp_from_filepath
-    from os.path import join, dirname
-    path = join(dirname(__file__), "sources/sampling.cpp")
-    sampling = imp_from_filepath(path)
-    sampling.seed(world.seed)
-    sample_ext = True
-except:
-    world.cprint("Cpp extension not loaded")
-    sample_ext = False
+# try:
+#     from cppimport import imp_from_filepath
+#     from os.path import join, dirname
+#     path = join(dirname(__file__), "sources/sampling.cpp")
+#     sampling = imp_from_filepath(path)
+#     sampling.seed(world.seed)
+#     sample_ext = True
+# except:
+#     world.cprint("Cpp extension not loaded")
+#     sample_ext = False
 
 
 class BPRLoss:
     def __init__(self,
                  recmodel : PairWiseModel,
-                 config : dict):
+                 config):
         self.model = recmodel
-        self.weight_decay = config['decay']
-        self.lr = config['lr']
+        self.weight_decay = config.decay
+        self.lr = config.lr
         self.opt = optim.Adam(recmodel.parameters(), lr=self.lr)
 
     def stageOne(self, users, pos, neg):
@@ -50,16 +46,16 @@ class BPRLoss:
         return loss.cpu().item()
 
 
-def UniformSample_original(dataset, neg_ratio = 1):
-    dataset : BasicDataset
-    allPos = dataset.allPos
-    start = time()
-    if sample_ext:
-        S = sampling.sample_negative(dataset.n_users, dataset.m_items,
-                                     dataset.trainDataSize, allPos, neg_ratio)
-    else:
-        S = UniformSample_original_python(dataset)
-    return S
+# def UniformSample_original(dataset, neg_ratio = 1):
+#     dataset : BasicDataset
+#     allPos = dataset.allPos
+#     start = time()
+#     if sample_ext:
+#         S = sampling.sample_negative(dataset.n_users, dataset.m_items,
+#                                      dataset.trainDataSize, allPos, neg_ratio)
+#     else:
+#         S = UniformSample_original_python(dataset)
+#     return S
 
 def UniformSample_original_python(dataset):
     """
@@ -69,8 +65,7 @@ def UniformSample_original_python(dataset):
     """
     total_start = time()
     dataset : BasicDataset
-    user_num = dataset.trainDataSize
-    users = np.random.randint(0, dataset.n_users, user_num)
+    users = np.random.randint(0, dataset.n_users, dataset.trainDataSize)
     allPos = dataset.allPos
     S = []
     sample_time1 = 0.
@@ -106,16 +101,14 @@ def set_seed(seed):
         torch.cuda.manual_seed_all(seed)
     torch.manual_seed(seed)
 
-def getFileName():
-    if world.model_name == 'mf':
-        file = f"mf-{world.dataset}-{world.config['latent_dim_rec']}.pth.tar"
-    elif world.model_name == 'lgn':
-        file = f"lgn-{world.dataset}-{world.config['lightGCN_n_layers']}-{world.config['latent_dim_rec']}-{world.config['shuffle']}.pth.tar"
-    return os.path.join(world.FILE_PATH,file)
+def getFileName(ROOT_PATH, config):
+    now = datetime.now()
+
+    file = f"{now.strftime('%m-%d')}-lgn-{config.n_layers}-{config.latent_dim_rec}.pth.tar"
+    return os.path.join(ROOT_PATH, config.path.FILE, file)
 
 def minibatch(*tensors, **kwargs):
-
-    batch_size = kwargs.get('batch_size', world.config['bpr_batch_size'])
+    batch_size = kwargs.get('batch_size')
 
     if len(tensors) == 1:
         tensor = tensors[0]
@@ -179,7 +172,7 @@ class EarlyStopping:
                 self.best_score = score
                 if self.verbose:
                     # 모델 저장
-                    torch.save(self.model.state_dict(), f'checkpoints/best_model.pth')
+                    torch.save(self.model.state_dict(), 'best_model.pth')
                     print(f'[EarlyStopping] (Update) Best Score: {self.best_score:.5f} & Model saved')
             else:
                 self.counter += 1

@@ -27,7 +27,6 @@ if __name__=='__main__':
     config['keep_prob']  = 0.6
     config['A_n_fold'] = 100
     config['test_u_batch_size'] = 1000
-    config['multicore'] = 0
     config['lr'] = 0.001
     config['decay'] = 1e-4
     config['pretrain'] = 0

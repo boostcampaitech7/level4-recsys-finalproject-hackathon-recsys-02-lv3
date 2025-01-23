@@ -1,0 +1,22 @@
+train:
+  batch_size: 4096
+  bpr_batch_size: 2048
+latent_dim_rec: 64
+n_layers: 3
+epochs: 1000
+dropout: 0
+keep_prob: 0.6
+lr: 0.001
+decay: 1e-4
+A_n_fold: 100
+A_split: False
+topks: [20,10]
+finetune: False
+device: 'cuda'
+tensorboard:True
+
+path:
+  CODE: 'code'
+  DATA: 'data'
+  BOARD: 'runs'
+  FILE: 'checkpoints'
