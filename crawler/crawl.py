@@ -1,30 +1,15 @@
 from bs4 import BeautifulSoup 
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from webdriver_manager.chrome import ChromeDriverManager
 from datetime import datetime, timedelta
-import boto3
-from selenium import webdriver
-
 import ray
-import math
 import os
-import time
 from datetime import datetime
 import pandas as pd
-from typing import List, Tuple
-import logging
 import os
-#import pendulum
-import glob
 import requests
-import json
 from urllib.parse import quote
 from datetime import datetime
 from tqdm import tqdm
 import pickle
-import random
 
 from utils import Directory
 
