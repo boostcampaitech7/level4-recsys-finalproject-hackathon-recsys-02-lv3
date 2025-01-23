@@ -4,6 +4,7 @@ import os
 
 from utils import Directory
 
+
 def transform_track(df):
     track_table = df[['track', 'last_fm_url', 'listeners', 'length', 'introduction']]
     track_table.drop_duplicates(subset = 'last_fm_url', inplace = True)

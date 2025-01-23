@@ -7,7 +7,6 @@ HOST = "34.64.106.144"
 PORT = "3306"
 DB = "spotify-dataset"
 
-
 def get_chunk_size(row_length):
     if row_length > 10000000:     # 천만 건 이상 (track_genre)
         return 50000
