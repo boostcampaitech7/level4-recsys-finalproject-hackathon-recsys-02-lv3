@@ -18,9 +18,6 @@ if __name__=='__main__':
     print(f"config: {OmegaConf.to_yaml(config)}")
 
     ROOT_PATH = os.path.dirname(os.path.dirname(__file__))
-    all_dataset = ['lastfm', 'gowalla', 'yelp2018', 'amazon-book', 'spotify']
-    all_models  = ['mf', 'lgn']
-
     dataset = Loader(config=config, path=os.path.join(ROOT_PATH,config.path.DATA))
     model = LightGCN(config, dataset)
     checkpoint = torch.load(os.path.join(ROOT_PATH, config.path.FILE, 'best_model.pth'), map_location=torch.device('cuda'))
