@@ -1,42 +1,29 @@
 import torch
-import argparse
-import world
-from dataloader import Loader
+import os
+from omegaconf import OmegaConf
+from batch_dataloader import Loader
 from model import LightGCN
 
-def inference(rating, uid, top_k=10000) -> list:
+def inference(rating, uid, top_k=100) -> list:
     '''
-    user_embs, item_embs: 기학습된 유저와 아이템 임베딩(emb_dim:64)
+    user_embs, item_embs: 학습된 유저와 아이템 임베딩 (emb_dim:64)
     uid: 유저 아이디 (int)
     '''
-    # 이미 본 아이템 제외하는 로직 필요
     _, indices = torch.topk(ratings[uid], top_k)
 
     return indices
 
 if __name__=='__main__':
-    ### config ###
-    config = {}
+    config = OmegaConf.load('config.yaml')
+    print(f"config: {OmegaConf.to_yaml(config)}")
+
+    ROOT_PATH = os.path.dirname(os.path.dirname(__file__))
     all_dataset = ['lastfm', 'gowalla', 'yelp2018', 'amazon-book', 'spotify']
     all_models  = ['mf', 'lgn']
-    # config['batch_size'] = 4096
-    config['bpr_batch_size'] = 2048
-    config['latent_dim_rec'] = 64
-    config['lightGCN_n_layers']= 3
-    config['dropout'] = 0.001
-    config['keep_prob']  = 0.6
-    config['A_n_fold'] = 100
-    config['test_u_batch_size'] = 1000
-    config['lr'] = 0.001
-    config['decay'] = 1e-4
-    config['pretrain'] = 0
-    config['A_split'] = False
-    config['bigdata'] = False
-    config['shuffle'] = 'shuffle'
 
-    dataset = Loader(path=world.DATA_PATH)
+    dataset = Loader(config=config, path=os.path.join(ROOT_PATH,config.path.DATA))
     model = LightGCN(config, dataset)
-    checkpoint = torch.load(world.FILE_PATH+"/best_model.pth", map_location=torch.device('cuda'))
+    checkpoint = torch.load(os.path.join(ROOT_PATH, config.path.FILE, 'best_model.pth'), map_location=torch.device('cuda'))
     model.load_state_dict(checkpoint)
     
     user_embs, item_embs = model.embedding_user.weight, model.embedding_item.weight
