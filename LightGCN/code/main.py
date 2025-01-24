@@ -5,10 +5,9 @@ from tensorboardX import SummaryWriter
 import time
 from omegaconf import OmegaConf
 import os
-#from box import Box
 import Procedure
 from model import LightGCN
-from dataloader import Loader
+from batch_dataloader import Loader
 from utils import EarlyStopping
 
 
@@ -20,22 +19,23 @@ weight_file = utils.getFileName(ROOT_PATH, config)
 print(f"load and save to {weight_file}")
 
 dataloader = Loader(config=config, path=os.path.join(ROOT_PATH,config.path.DATA))
-Recmodel = LightGCN(config, dataloader)
-Recmodel = Recmodel.to(torch.device(config.device))
-bpr = utils.BPRLoss(Recmodel, config)
+model = LightGCN(config, dataloader)
+model = model.to(torch.device(config.device))
+bpr = utils.BPRLoss(model, config)
 
 if config.finetune:
     try:
-        Recmodel.load_state_dict(torch.load(weight_file,map_location=torch.device('cpu')))
+        model.load_state_dict(torch.load(weight_file,map_location=torch.device('cpu')))
         print(f"loaded model weights from {weight_file}")
     except FileNotFoundError:
         print(f"{weight_file} not exists, start from beginning")
 
-es = EarlyStopping(model=Recmodel,
+es = EarlyStopping(model=model,
                    patience=10, 
                    delta=0, 
                    mode='min', 
-                   verbose=True
+                   verbose=True,
+                   path=os.path.join(ROOT_PATH, config.path.FILE, 'best_model.pth')
                   )
 
 # init tensorboard
@@ -53,13 +53,13 @@ try:
     should_stop = False
     for epoch in range(config.epochs):
         start = time.time()
-        if epoch %10 == 0:
+        if config.test and epoch %10 == 0:
             print(f"test at epoch {epoch}")
-            Procedure.Test(config, dataloader, Recmodel, epoch, w)
-        output_information, avr_loss = Procedure.BPR_train_original(config, dataloader, Recmodel, bpr, epoch, 1, w)
+            Procedure.Test(config, dataloader, model, epoch, w)
+        output_information, avr_loss = Procedure.BPR_train_original(config, dataloader, model, bpr, epoch, 1, w)
         if epoch % 5 == 0:
             print(f'EPOCH[{epoch+1}/{config.epochs}] {output_information}')
-        torch.save(Recmodel.state_dict(), weight_file)
+        torch.save(model.state_dict(), weight_file)
         # early stopping -> 10 epoch 동안 loss 값이 줄어들지 않을 경우 학습 종료
         es(avr_loss)
         if es.early_stop:

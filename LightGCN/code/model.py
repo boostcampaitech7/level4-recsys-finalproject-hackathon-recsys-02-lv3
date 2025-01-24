@@ -104,6 +104,7 @@ class LightGCN(BasicModel):
                 g_droped = self.Graph        
         else:
             g_droped = self.Graph    
+            
         
         for layer in range(self.n_layers):
             if self.A_split:
@@ -140,8 +141,10 @@ class LightGCN(BasicModel):
     
     # loss 값 만드는 부분
     def bpr_loss(self, users, pos, neg):
+        # 범위를 초과하거나 음수가 있으면 문제
         (users_emb, pos_emb, neg_emb, 
         userEmb0,  posEmb0, negEmb0) = self.getEmbedding(users.long(), pos.long(), neg.long())
+        
         reg_loss = (1/2)*(userEmb0.norm(2).pow(2) + 
                          posEmb0.norm(2).pow(2)  +
                          negEmb0.norm(2).pow(2))/float(len(users))

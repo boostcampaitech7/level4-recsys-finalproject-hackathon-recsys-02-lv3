@@ -19,7 +19,6 @@ def BPR_train_original(config, dataset, recommend_model, loss_class, epoch, neg_
     bpr: utils.BPRLoss = loss_class
     
     with timer(name="Sample"):
-        # 이 부분을 다른 Sampler로 대체
         S = utils.UniformSample_original_python(dataset)
     users = torch.Tensor(S[:, 0]).long()
     posItems = torch.Tensor(S[:, 1]).long()
@@ -28,6 +27,7 @@ def BPR_train_original(config, dataset, recommend_model, loss_class, epoch, neg_
     users = users.to(config.device)
     posItems = posItems.to(config.device)
     negItems = negItems.to(config.device)
+    
     users, posItems, negItems = utils.shuffle(users, posItems, negItems)
     total_batch = len(users) // config.train.bpr_batch_size + 1
     aver_loss = 0.

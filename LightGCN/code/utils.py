@@ -44,19 +44,7 @@ class BPRLoss:
         self.opt.step()
 
         return loss.cpu().item()
-
-
-# def UniformSample_original(dataset, neg_ratio = 1):
-#     dataset : BasicDataset
-#     allPos = dataset.allPos
-#     start = time()
-#     if sample_ext:
-#         S = sampling.sample_negative(dataset.n_users, dataset.m_items,
-#                                      dataset.trainDataSize, allPos, neg_ratio)
-#     else:
-#         S = UniformSample_original_python(dataset)
-#     return S
-
+    
 def UniformSample_original_python(dataset):
     """
     the original impliment of BPR Sampling in LightGCN
@@ -67,24 +55,31 @@ def UniformSample_original_python(dataset):
     dataset : BasicDataset
     users = np.random.randint(0, dataset.n_users, dataset.trainDataSize)
     allPos = dataset.allPos
+    allNeg = dataset.allNeg
     S = []
     sample_time1 = 0.
-    sample_time2 = 0.
     for i, user in enumerate(users):
         start = time()
         posForUser = allPos[user]
+        #print("pos:", posForUser)
         if len(posForUser) == 0:
             continue
-        sample_time2 += time() - start
         posindex = np.random.randint(0, len(posForUser))
         positem = posForUser[posindex]
-        while True:
-            # 이 부분을 서비스에서 입력 받은 neg item으로 전달
-            negitem = np.random.randint(0, dataset.m_items)
-            if negitem in posForUser:
-                continue
-            else:
-                break
+        
+        negForUser = allNeg[user]
+        if len(negForUser) == 0:
+            continue
+        negindex = np.random.randint(0, len(negForUser))
+        negitem = negForUser[negindex]
+
+        # while True:
+        #     # 이 부분을 서비스에서 입력 받은 neg item으로 전달
+        #     negitem = np.random.randint(0, dataset.m_items)
+        #     if negitem in posForUser:
+        #         continue
+        #     else:
+        #         break
         S.append([user, positem, negitem])
         end = time()
         sample_time1 += end - start
@@ -103,9 +98,8 @@ def set_seed(seed):
 
 def getFileName(ROOT_PATH, config):
     now = datetime.now()
-
-    file = f"{now.strftime('%m-%d')}-lgn-{config.n_layers}-{config.latent_dim_rec}.pth.tar"
-    return os.path.join(ROOT_PATH, config.path.FILE, file)
+    file = os.path.join(ROOT_PATH, config.path.FILE, f"{now.strftime('%m-%d')}-lgn-{config.n_layers}-{config.latent_dim_rec}.pth.tar")
+    return file
 
 def minibatch(*tensors, **kwargs):
     batch_size = kwargs.get('batch_size')
@@ -144,7 +138,7 @@ def shuffle(*arrays, **kwargs):
 # =========================================================
     
 class EarlyStopping:
-    def __init__(self,model, patience=3, delta=0.0, mode='min', verbose=True):
+    def __init__(self,model, patience=3, delta=0.0, mode='min', verbose=True, path='best_model.pth'):
         """
         patience (int): loss or score가 개선된 후 기다리는 기간. default: 3
         delta  (float): 개선시 인정되는 최소 변화 수치. default: 0.0
@@ -160,6 +154,7 @@ class EarlyStopping:
         self.mode = mode
         self.delta = delta
         self.model = model
+        self.path = path
 
     def __call__(self, score):
 
@@ -172,7 +167,7 @@ class EarlyStopping:
                 self.best_score = score
                 if self.verbose:
                     # 모델 저장
-                    torch.save(self.model.state_dict(), 'best_model.pth')
+                    torch.save(self.model.state_dict(), self.path)
                     print(f'[EarlyStopping] (Update) Best Score: {self.best_score:.5f} & Model saved')
             else:
                 self.counter += 1
@@ -187,7 +182,7 @@ class EarlyStopping:
                 self.best_score = score
                 if self.verbose:
                     # 모델 저장
-                    torch.save(model.state_dict(), f'best_model.pth')
+                    torch.save(self.model.state_dict(), self.path)
                     print(f'[EarlyStopping] (Update) Best Score: {self.best_score:.5f} & Model saved')
             else:
                 self.counter += 1
