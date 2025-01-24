@@ -40,3 +40,17 @@ async def get_onboarding(loggingPlaylistRequest: LoggingPlaylistRequest):
         )
         interaction_collection.insert_one(log.dict())
     return JSONResponse(status_code=200, content={"message":"logging complete"})
+
+@router.post("/test/onboarding/select")
+async def get_onboarding(loggingPlaylistRequest: LoggingPlaylistRequest):
+    items = loggingPlaylistRequest.items
+    for item in items:
+        log = LoggingPlaylist(
+            user_id=loggingPlaylistRequest.user_id, 
+            track_id=item.track_id, 
+            process=item.process, 
+            action=item.action, 
+            timestamp=get_seoul_timestamp()
+        )
+        interaction_collection.insert_one(log.dict())
+    return JSONResponse(status_code=200, content={"message":"success"})
