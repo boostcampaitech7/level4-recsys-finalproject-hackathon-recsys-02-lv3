@@ -111,10 +111,11 @@ def tranform_track_genre(**context):
     track_genre_table['genre'] = track_genre_table['genre'].apply(ast.literal_eval)
     track_genre_table = track_genre_table.explode("genre")
 
-    track_genre_table['genre'] = track_genre_table['genre'].map(genre_table.set_index("genre")['genre_id'])
+    track_genre_table['genre_id'] = track_genre_table['genre'].map(genre_table.set_index("genre")['genre_id'])
     track_genre_table['track_id'] = track_genre_table['last_fm_url'].map(track_table.set_index("last_fm_url")['track_id'])
 
     track_genre_table.drop(['track', 'last_fm_url'], axis = 1, inplace = True)
+    track_genre_table.insert(0, "track_genre_id", range(1, len(track_genre_table) + 1))
 
     path = os.path.join(Directory.TRANSFORM_DIR, 'spotify/track_genre_table.csv')
     track_genre_table.to_csv(path, index=False)
@@ -190,6 +191,18 @@ with DAG('transform_spotify_dag',
             "bucket_name": Config.BUCKET_NAME
         },
         provide_context=True
+    )
+
+    load_to_db_trigger_task = TriggerDagRunOperator(
+        task_id='load_to_db_trigger_task',
+        trigger_dag_id='load_to_db_dag',
+        trigger_run_id=None,
+        execution_date=None,
+        reset_dag_run=False,
+        wait_for_completion=False,
+        poke_interval=60,
+        allowed_states=["success"],
+        failed_states=None,
     )
 
     end_task = EmptyOperator(
