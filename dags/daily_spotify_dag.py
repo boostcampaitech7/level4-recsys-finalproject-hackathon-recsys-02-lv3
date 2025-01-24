@@ -276,6 +276,18 @@ with DAG('daily_spotify_dag',
         provide_context=True
     )
 
+    transform_spotify_trigger_task = TriggerDagRunOperator(
+        task_id='transform_spotify_trigger_task',
+        trigger_dag_id='transform_spotify_dag',
+        trigger_run_id=None,
+        execution_date=None,
+        reset_dag_run=False,
+        wait_for_completion=False,
+        poke_interval=60,
+        allowed_states=["success"],
+        failed_states=None,
+    )
+
     delete_xcom_task = PythonOperator(
             task_id="delete_xcom_task",
             python_callable=delete_xcoms_for_dags,
@@ -286,4 +298,4 @@ with DAG('daily_spotify_dag',
         task_id="end_task"
     )
     
-    start_task >> get_last_fm_url_from_db_task >> get_track_artist_list_task >> get_info_group_task >> combine_results_task >>  upload_file_to_gcs_task >> delete_xcom_task >> end_task
+    start_task >> get_last_fm_url_from_db_task >> get_track_artist_list_task >> get_info_group_task >> combine_results_task >> upload_file_to_gcs_task >> transform_spotify_trigger_task >> delete_xcom_task >> end_task
