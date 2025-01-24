@@ -12,6 +12,8 @@ class Config:
 
     REGIONS = Variable.get("REGIONS", deserialize_json=True)
 
+    BUCKET_NAME = Variable.get("BUCKET_NAME")
+
 
 
 class Directory:
