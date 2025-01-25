@@ -6,6 +6,8 @@ __pycache__/
 .cache/
 .myenv/
 *.pyc
-crawler/my_list.pkl
+*.pkl
 download/
 transform/
+*.json
+*.ipynb
