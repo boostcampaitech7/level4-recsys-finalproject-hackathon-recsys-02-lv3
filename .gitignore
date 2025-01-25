@@ -11,3 +11,7 @@ download/
 transform/
 *.json
 *.ipynb
+LightGCN/embeddings/
+LightGCN/runs/
+LightGCN/checkpoints/
+logs/
