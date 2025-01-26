@@ -40,29 +40,6 @@ async def get_user_playlists(user_id: int, db: Session = Depends(get_db)):
         playlist_img_url=item["images"][0]["url"] if item["images"] else None
     ).dict()for item in items]
     return JSONResponse(status_code=200, content={"message":"playlists loaded successfully", "items":playlists})
-
-@router.get("/test/playlists/{playlist_id}", response_model=list[Track])
-async def get_playlist_track(playlist_id: str, user_id: int = Query(...), \
-                             db: Session = Depends(get_db)):
-    find_user = db.query(User).filter(User.user_id == user_id).first()
-    if not find_user:
-        raise HTTPException(status_code=404, detail="cannot find user")
-    
-    response = await spotify_service._make_request(
-        method='GET',
-        url=f"{setting.SPOTIFY_API_URL}/playlists/{playlist_id}/tracks",
-        user=find_user,
-        db=db
-    )
-
-    items = response["items"]
-    tracks = [Track(
-        track_id=item["track"]["id"], 
-        track_name=item["track"]["name"],
-        track_img_url=item["track"]["album"]["images"][0]["url"] if item["track"]["album"]["images"] else None,
-        artists=[Artist(artist_name=artist["name"]).dict() for artist in item["track"]["artists"]]
-    ).dict() for item in items]
-    return JSONResponse(status_code=200, content={"message":"playlists loaded successfully", "items":tracks})
         
 @router.post("/playlists/{playlist_id}/tracks")
 async def insert_playlist_track(playlist_id: str, tracks: InsertTrackRequest, user_id: int = Query(...), \
