@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     EMBEDDING_DATABASE_URL: str
     MONGODB_DATABASE_URL: str
     MODEL_API_URL: str
+    UPSTAGE_OCR_API_URL: str
+    UPSTAGE_API_KEY: str
 
     class Config:
         env_file = "app/config/.env"

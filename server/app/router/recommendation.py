@@ -1,5 +1,6 @@
 import httpx
-from fastapi import APIRouter, HTTPException, Query, Depends
+import re
+from fastapi import APIRouter, HTTPException, Query, Depends, File, UploadFile, Form
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text
@@ -193,3 +194,51 @@ async def test_get_recommendation_by_playlists_100(playlist_id: str, user_id: in
             return JSONResponse(status_code=200, content=recommendations)
         else:
             raise HTTPException(status_code=response.status_code, detail=response.json())
+
+@router.post("/test/playlist/image")
+async def upload_image_and_get_playlist(
+    user_id: int = Form(...),
+    image: UploadFile = File(...), 
+    db: Session = Depends(get_db)
+):
+    find_user = db.query(User).filter(User.user_id == user_id).first()
+    if not find_user:
+        raise HTTPException(status_code=404, detail="cannot find user")
+    try:
+        files = {"document": (image.filename, await image.read(), image.content_type)}
+        headers = {
+                "Authorization": f"Bearer {setting.UPSTAGE_API_KEY}"
+            }
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{setting.UPSTAGE_OCR_API_URL}",
+                headers=headers,
+                files=files
+            )
+
+            if response.status_code == 200:
+                def remove_video(text: str):
+                    return re.sub(r'동영상\s*·?\s*', '', text)
+                
+                def replace_ellipses(text: str):
+                    return text.replace('...', '%')
+
+                def extract_song_artist(text: str):
+                    text = remove_video(text)
+                    pattern = r'([^\n·]+)\s*·?\s*([^\n·]+)'
+                    matches = re.findall(pattern, text)
+                    matches = [(replace_ellipses(song), replace_ellipses(artist)) for song, artist in matches]
+                    return matches
+                text = response.json()["text"]
+                song_artist = extract_song_artist(text)
+                result = []
+                for song, artist in song_artist:
+                    result.append({
+                        "song":song,
+                        "aritst":artist
+                    })
+                return {"status": "success", "user_id": user_id, "data": result}
+            else:
+                raise HTTPException(status_code=response.status_code, detail=response.json())
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
