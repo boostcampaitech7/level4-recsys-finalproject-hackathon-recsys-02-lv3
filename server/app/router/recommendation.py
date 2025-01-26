@@ -130,29 +130,11 @@ async def get_recommendation_by_playlists(playlist_id: str, user_id: int = Query
                     artists=[Artist(artist_name=artist).dict() for artist in result[2].split(' & ')],
                     track_img_url=result[3],
                 ).dict())
-            for track in response.json()['items']:
-                query = text("""
-                    SELECT t.track, 
-                    STRING_AGG(DISTINCT a.artist, ' & ' ORDER BY a.artist) AS artist_names,
-                    t.img_url
-                    FROM track t
-                    JOIN track_artist ta ON ta.track_id = t.track_id
-                    JOIN artist a ON ta.artist_id = a.artist_id
-                    WHERE t.track_id = :track_id
-                    GROUP BY t.track_id, t.track, t.img_url;
-                """)
-                result = db.execute(query, {"track_id": track}).fetchone()
-                recommendations.append(Track(
-                    track_id=track, 
-                    track_name=result[0],
-                    artists=[Artist(artist_name=result[1]).dict()],
-                    track_img_url=result[2],
-                ).dict())
             return JSONResponse(status_code=200, content=recommendations)
         else:
             raise HTTPException(status_code=response.status_code, detail=response.json())
 
-@router.post("/test/playlist/image")
+@router.post("/playlist/image")
 async def upload_playlist_image(
     user_id: int = Form(...),
     image: UploadFile = File(...), 
@@ -198,7 +180,7 @@ async def upload_playlist_image(
     except Exception as e:
         return {"status": "error", "message": str(e)}
     
-@router.post("/test/playlist/image/tracks")
+@router.post("/playlist/image/tracks")
 async def get_recommendation_by_image(ocrRecommendation: OCRRecommendation, db: Session = Depends(get_db)):
     find_user = db.query(User).filter(User.user_id == ocrRecommendation.user_id).first()
     if not find_user:
@@ -208,29 +190,48 @@ async def get_recommendation_by_image(ocrRecommendation: OCRRecommendation, db: 
         return text.replace('...', '%')
     
     track_artist = [(replace_ellipses(item.track_name), replace_ellipses(item.artist_name)) for item in ocrRecommendation.items]
-    recommendations = []
+    tracks = []
     for track, artist in track_artist:
         query = text("""
             SELECT 
-                    t.track_id,
-                    t.track AS track_name, 
-                    STRING_AGG(DISTINCT a.artist, ' & ' ORDER BY a.artist) AS artist_names,
-                    t.img_url
+                    t.track_id
             FROM track t
             JOIN track_artist ta ON ta.track_id = t.track_id
             JOIN artist a ON ta.artist_id = a.artist_id
             WHERE LOWER(REPLACE(a.artist, ' ', '')) LIKE LOWER(REPLACE(:artist_name, ' ', ''))
-            AND LOWER(REPLACE(t.track, ' ', '')) LIKE LOWER(REPLACE(:track_name, ' ', ''))
-            GROUP BY t.track_id, t.track, t.img_url;
+            AND LOWER(REPLACE(t.track, ' ', '')) LIKE LOWER(REPLACE(:track_name, ' ', ''));
         """)
         result = db.execute(query, {"artist_name": artist.split("&")[0], "track_name": track}).fetchone()
         if result:
-            recommendations.append(Track(
+            tracks.append(result[0])
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{setting.MODEL_API_URL}/playlist",
+            json=PlaylistRecommendation(user_id=ocrRecommendation.user_id, items=tracks).dict()
+        )
+        if response.status_code == 200:
+            query = text("""
+                    SELECT 
+                        t.track_id,
+                        t.track AS track_name, 
+                        STRING_AGG(DISTINCT a.artist, ' & ' ORDER BY a.artist) AS artist_names,
+                        t.img_url
+                    FROM track t
+                    JOIN track_artist ta ON ta.track_id = t.track_id
+                    JOIN artist a ON ta.artist_id = a.artist_id
+                    WHERE t.track_id = ANY(:track_id)
+                    GROUP BY t.track, t.img_url, t.track_id
+                    ORDER BY ARRAY_POSITION(:track_id, t.track_id);
+                    """)
+            recommendations = []
+            results = db.execute(query, {"track_id": response.json()['items']}).fetchall() 
+            for result in results:
+                recommendations.append(Track(
                     track_id=result[0],
                     track_name=result[1],
                     artists=[Artist(artist_name=artist).dict() for artist in result[2].split(' & ')],
                     track_img_url=result[3],
-            ).dict())
+                ).dict())
 
-    return JSONResponse(status_code=200, content=recommendations)
+    return JSONResponse(status_code=200, content=tracks)
 
