@@ -151,49 +151,6 @@ async def get_recommendation_by_playlists(playlist_id: str, user_id: int = Query
             return JSONResponse(status_code=200, content=recommendations)
         else:
             raise HTTPException(status_code=response.status_code, detail=response.json())
-        
-@router.get("/test/playlists/{playlist_id}/tracks", response_model=list[Track])
-async def test_get_recommendation_by_playlists_100(playlist_id: str, user_id: int = Query(...), \
-                             db: Session = Depends(get_db)):
-    find_user = db.query(User).filter(User.user_id == user_id).first()
-    if not find_user:
-        raise HTTPException(status_code=404, detail="cannot find user")
-    
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            f"{setting.SPOTIFY_API_URL}/playlists/{playlist_id}/tracks",
-            headers={
-                "Authorization":f"Bearer {find_user.access_token}"
-            }
-        )
-        if response.status_code == 200:
-            recommendations = []
-            index = [i for i in range(1, 101)]
-            query = text("""
-                    SELECT 
-                        t.track_id,
-                        t.track AS track_name, 
-                        STRING_AGG(DISTINCT a.artist, ' & ' ORDER BY a.artist) AS artist_names,
-                        t.img_url
-                    FROM track t
-                    JOIN track_artist ta ON ta.track_id = t.track_id
-                    JOIN artist a ON ta.artist_id = a.artist_id
-                    WHERE t.track_id = ANY(:track_id)
-                    GROUP BY t.track, t.img_url, t.track_id
-                    ORDER BY ARRAY_POSITION(:track_id, t.track_id);
-                    """)
-            results = db.execute(query, {"track_id": index}).fetchall() 
-            for result in results:
-                recommendations.append(Track(
-                    track_id=result[0],
-                    track_name=result[1],
-                    artists=[Artist(artist_name=artist).dict() for artist in result[2].split(' & ')],
-                    track_img_url=result[3],
-                ).dict())
-
-            return JSONResponse(status_code=200, content=recommendations)
-        else:
-            raise HTTPException(status_code=response.status_code, detail=response.json())
 
 @router.post("/test/playlist/image")
 async def upload_playlist_image(
