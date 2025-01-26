@@ -36,7 +36,7 @@ async def get_onboarding(onboadingRequest: OnboardingRequest):
             raise HTTPException(status_code=response.status_code, detail=response.json())
         
 @router.post("/test/onboarding")
-async def get_onboarding(onboadingRequest: OnboardingRequest, db: Session = Depends(get_db)):
+async def get_onboarding_dummy_data(onboadingRequest: OnboardingRequest, db: Session = Depends(get_db)):
     find_user = db.query(User).filter(User.user_id == onboadingRequest.user_id).first()
     if not find_user:
         raise HTTPException(status_code=404, detail="cannot find user")
