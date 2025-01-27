@@ -66,7 +66,7 @@ def Test(config, dataset, Recmodel, epoch, w=None):
             
     u_batch_size = 100
     dataset: utils.BasicDataset
-    testDict: dict = dataset.testDict
+    valSet: dict = dataset.valSet
     Recmodel: model.LightGCN
     # eval mode with no dropout
     Recmodel = Recmodel.eval()
@@ -76,7 +76,7 @@ def Test(config, dataset, Recmodel, epoch, w=None):
                'recall': np.zeros(len(config.topks)),
                'ndcg': np.zeros(len(config.topks))}
     with torch.no_grad():
-        users = list(testDict.keys())
+        users = list(valSet.keys())
         try:
             assert u_batch_size <= len(users) / 10
         except AssertionError:
@@ -88,7 +88,7 @@ def Test(config, dataset, Recmodel, epoch, w=None):
         total_batch = len(users) // u_batch_size + 1
         for batch_users in utils.minibatch(users, batch_size=u_batch_size):
             allPos = dataset.getUserPosItems(batch_users)
-            groundTrue = [testDict[u] for u in batch_users]
+            groundTrue = [valSet[u] for u in batch_users]
             batch_users_gpu = torch.Tensor(batch_users).long()
             batch_users_gpu = batch_users_gpu.to(config.device)
 
@@ -109,7 +109,7 @@ def Test(config, dataset, Recmodel, epoch, w=None):
             users_list.append(batch_users)
             rating_list.append(rating_K.cpu())
             groundTrue_list.append(groundTrue)
-            # rating_list, groundTrue는 각각 len==batch인 리스트.
+            
         assert total_batch == len(users_list)
         X = zip(rating_list, groundTrue_list)
         

@@ -34,6 +34,10 @@ class BasicDataset(Dataset):
     def allNeg(self):
         raise NotImplementedError
     
+    @property
+    def valSet(self):
+        raise NotImplementedError
+    
     def getUserItemFeedback(self, users, items):
         raise NotImplementedError
     
@@ -74,7 +78,7 @@ class Loader(BasicDataset):
         pos_file = os.path.join(path, 'pos.txt')
         neg_file = os.path.join(path, 'neg.txt')
         self.path = path
-        trainUniqueUsers, trainItem, trainUser = [], [], []
+        trainUniqueUsers, trainItem, testItem, trainUser, testUser = [], [], [], [], []
         self.traindataSize = 0
 
         with open(pos_file) as f:
@@ -82,20 +86,25 @@ class Loader(BasicDataset):
                 if len(l) > 0:
                     uid, items = l.strip('\n').split('\t')
                     items = list(map(int, items.split()))
+                    if config.test:
+                        split = int(len(items)*0.8)
+                        train_items, test_items = items[:split], items[split:]
+                        testUser.extend([uid]*len(test_items))
+                        testItem.extend(test_items)
                     uid = int(uid)
                     trainUniqueUsers.append(uid)
-                    # trainUser: 인터랙션 개수만큼의 uid
-                    # trainItem: 인터랙션에 기록된 iid
-                    trainUser.extend([uid] * len(items))
-                    trainItem.extend(items)
+                    trainUser.extend([uid] * len(train_items))
+                    trainItem.extend(train_items)
                     self.m_item = max(self.m_item, max(items))
                     self.n_user = max(self.n_user, uid)
-                    self.traindataSize += len(items)
+                    self.traindataSize += len(train_items)
         self.m_item += 1
         self.n_user += 1
         self.trainUniqueUsers = np.array(trainUniqueUsers)
         self.trainUser = np.array(trainUser)
         self.trainItem = np.array(trainItem)
+        self.testUser = np.array(testUser)
+        self.testItem = np.array(testItem)
         
         self.Graph = None
         print(f"{self.trainDataSize} interactions for training")
@@ -109,10 +118,6 @@ class Loader(BasicDataset):
                     items = list(map(int, items.split()))
                     uid = int(uid)
                     trainUniqueUsers.append(uid)
-                    # trainUser: 인터랙션 개수만큼의 uid
-                    # trainItem: 인터랙션에 기록된 iid
-                    # trainUser.extend([uid] * len(items))
-                    # trainItem.extend(items)
                     self.m_item = max(self.m_item, max(items))
                     self.n_user = max(self.n_user, uid)
                     self.traindataSize += len(items)
@@ -126,7 +131,7 @@ class Loader(BasicDataset):
         # (users,items), bipartite graph
         self.UserItemNet = csr_matrix((np.ones(len(self.trainUser)), (self.trainUser, self.trainItem)),
                                       shape=(self.n_user, self.m_item))
-        print(self.UserItemNet.shape)
+        print(f"user, item matrix shape is: {self.UserItemNet.shape}")
 
         self.users_D = np.array(self.UserItemNet.sum(axis=1)).squeeze()
         self.users_D[self.users_D == 0.] = 1
@@ -137,6 +142,8 @@ class Loader(BasicDataset):
         self._allPos = self.getUserPosItems(users=list(range(self.n_user)))
         self._allNeg = self.getUserNegItems(users=list(range(self.n_user)), 
                                             neg_net=neg_lil_net)
+        if config.test:
+            self._valSet = self.buildValidSet()
         print(f"Data is ready to go")
 
     @property
@@ -158,6 +165,10 @@ class Loader(BasicDataset):
     @property
     def allNeg(self):
         return self._allNeg
+    
+    @property
+    def valSet(self):
+        return self._valSet
 
     def _split_A_hat(self,A):
         A_fold = []
@@ -244,3 +255,13 @@ class Loader(BasicDataset):
             negIdx = np.where(r==user)[0]
             negItems.append(c[negIdx])
         return negItems
+
+    def buildValidSet(self):
+        testDict = {}
+        for i, item in enumerate(self.testItem):
+            user = self.trainUser[i]
+            if testDict.get(user):
+                testDict[user].append(item)
+            else:
+                testDict[user] = [item]
+        return testDict
