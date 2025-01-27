@@ -5,22 +5,37 @@ Xiangnan He et al. LightGCN: Simplifying and Powering Graph Convolution Network 
 
 @author: Jianbai Ye (gusye@mail.ustc.edu.cn)
 '''
+import world
 import torch
-from torch import optim
+from torch import nn, optim
 import numpy as np
+from torch import log
 from dataloader import BasicDataset
 from time import time
-from datetime import datetime
+from model import LightGCN
 from model import PairWiseModel
+from sklearn.metrics import roc_auc_score
+import random
 import os
+try:
+    from cppimport import imp_from_filepath
+    from os.path import join, dirname
+    path = join(dirname(__file__), "sources/sampling.cpp")
+    sampling = imp_from_filepath(path)
+    sampling.seed(world.seed)
+    sample_ext = True
+except:
+    world.cprint("Cpp extension not loaded")
+    sample_ext = False
+
 
 class BPRLoss:
     def __init__(self,
                  recmodel : PairWiseModel,
-                 config):
+                 config : dict):
         self.model = recmodel
-        self.weight_decay = config.decay
-        self.lr = config.lr
+        self.weight_decay = config['decay']
+        self.lr = config['lr']
         self.opt = optim.Adam(recmodel.parameters(), lr=self.lr)
 
     def stageOne(self, users, pos, neg):
@@ -33,7 +48,19 @@ class BPRLoss:
         self.opt.step()
 
         return loss.cpu().item()
-    
+
+
+def UniformSample_original(dataset, neg_ratio = 1):
+    dataset : BasicDataset
+    allPos = dataset.allPos
+    start = time()
+    if sample_ext:
+        S = sampling.sample_negative(dataset.n_users, dataset.m_items,
+                                     dataset.trainDataSize, allPos, neg_ratio)
+    else:
+        S = UniformSample_original_python(dataset)
+    return S
+
 def UniformSample_original_python(dataset):
     """
     the original impliment of BPR Sampling in LightGCN
@@ -42,26 +69,27 @@ def UniformSample_original_python(dataset):
     """
     total_start = time()
     dataset : BasicDataset
-    users = np.random.randint(0, dataset.n_users, dataset.trainDataSize)
+    user_num = dataset.trainDataSize
+    users = np.random.randint(0, dataset.n_users, user_num)
     allPos = dataset.allPos
-    allNeg = dataset.allNeg
     S = []
     sample_time1 = 0.
+    sample_time2 = 0.
     for i, user in enumerate(users):
         start = time()
         posForUser = allPos[user]
-        #print("pos:", posForUser)
         if len(posForUser) == 0:
             continue
+        sample_time2 += time() - start
         posindex = np.random.randint(0, len(posForUser))
         positem = posForUser[posindex]
-        
-        negForUser = allNeg[user]
-        if len(negForUser) == 0:
-            continue
-        negindex = np.random.randint(0, len(negForUser))
-        negitem = negForUser[negindex]
-
+        while True:
+            # 이 부분을 서비스에서 입력 받은 neg item으로 전달
+            negitem = np.random.randint(0, dataset.m_items)
+            if negitem in posForUser:
+                continue
+            else:
+                break
         S.append([user, positem, negitem])
         end = time()
         sample_time1 += end - start
@@ -78,13 +106,16 @@ def set_seed(seed):
         torch.cuda.manual_seed_all(seed)
     torch.manual_seed(seed)
 
-def getFileName(ROOT_PATH, config):
-    now = datetime.now()
-    file = os.path.join(ROOT_PATH, config.path.FILE, f"{now.strftime('%m-%d')}-lgn-{config.n_layers}-{config.latent_dim_rec}.pth.tar")
-    return file
+def getFileName():
+    if world.model_name == 'mf':
+        file = f"mf-{world.dataset}-{world.config['latent_dim_rec']}.pth.tar"
+    elif world.model_name == 'lgn':
+        file = f"lgn-{world.dataset}-{world.config['lightGCN_n_layers']}-{world.config['latent_dim_rec']}-{world.config['shuffle']}.pth.tar"
+    return os.path.join(world.FILE_PATH,file)
 
 def minibatch(*tensors, **kwargs):
-    batch_size = kwargs.get('batch_size')
+
+    batch_size = kwargs.get('batch_size', world.config['bpr_batch_size'])
 
     if len(tensors) == 1:
         tensor = tensors[0]
@@ -120,7 +151,7 @@ def shuffle(*arrays, **kwargs):
 # =========================================================
     
 class EarlyStopping:
-    def __init__(self,model, patience=3, delta=0.0, mode='min', verbose=True, path='best_model.pth'):
+    def __init__(self,model, patience=3, delta=0.0, mode='min', verbose=True):
         """
         patience (int): loss or score가 개선된 후 기다리는 기간. default: 3
         delta  (float): 개선시 인정되는 최소 변화 수치. default: 0.0
@@ -136,7 +167,6 @@ class EarlyStopping:
         self.mode = mode
         self.delta = delta
         self.model = model
-        self.path = path
 
     def __call__(self, score):
 
@@ -149,7 +179,8 @@ class EarlyStopping:
                 self.best_score = score
                 if self.verbose:
                     # 모델 저장
-                    torch.save(self.model.state_dict(), self.path)
+                    torch.save(self.model.state_dict(), f'checkpoints/best_model.pth')
+                    print(f'[EarlyStopping] (Update) Best Score: {self.best_score:.5f} & Model saved')
             else:
                 self.counter += 1
                 if self.verbose:
@@ -163,7 +194,7 @@ class EarlyStopping:
                 self.best_score = score
                 if self.verbose:
                     # 모델 저장
-                    torch.save(self.model.state_dict(), self.path)
+                    torch.save(model.state_dict(), f'best_model.pth')
                     print(f'[EarlyStopping] (Update) Best Score: {self.best_score:.5f} & Model saved')
             else:
                 self.counter += 1
