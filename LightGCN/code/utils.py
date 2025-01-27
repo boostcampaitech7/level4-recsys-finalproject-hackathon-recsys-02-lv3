@@ -11,19 +11,8 @@ import numpy as np
 from dataloader import BasicDataset
 from time import time
 from datetime import datetime
-from model import LightGCN, PairWiseModel
+from model import PairWiseModel
 import os
-# try:
-#     from cppimport import imp_from_filepath
-#     from os.path import join, dirname
-#     path = join(dirname(__file__), "sources/sampling.cpp")
-#     sampling = imp_from_filepath(path)
-#     sampling.seed(world.seed)
-#     sample_ext = True
-# except:
-#     world.cprint("Cpp extension not loaded")
-#     sample_ext = False
-
 
 class BPRLoss:
     def __init__(self,
@@ -73,13 +62,6 @@ def UniformSample_original_python(dataset):
         negindex = np.random.randint(0, len(negForUser))
         negitem = negForUser[negindex]
 
-        # while True:
-        #     # 이 부분을 서비스에서 입력 받은 neg item으로 전달
-        #     negitem = np.random.randint(0, dataset.m_items)
-        #     if negitem in posForUser:
-        #         continue
-        #     else:
-        #         break
         S.append([user, positem, negitem])
         end = time()
         sample_time1 += end - start
@@ -168,7 +150,6 @@ class EarlyStopping:
                 if self.verbose:
                     # 모델 저장
                     torch.save(self.model.state_dict(), self.path)
-                    print(f'[EarlyStopping] (Update) Best Score: {self.best_score:.5f} & Model saved')
             else:
                 self.counter += 1
                 if self.verbose:
