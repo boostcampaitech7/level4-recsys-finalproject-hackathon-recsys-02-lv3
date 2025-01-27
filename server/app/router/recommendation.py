@@ -7,7 +7,7 @@ from sqlalchemy import text
 from app.dto.recommendation import OnboardingRequest, PlaylistRecommendation, TrackIdPair, OCRTrack, OCRRecommendation
 from app.utils.spotify_api_service import SpotifyApiService
 from app.config.settings import Settings
-from app.dto.playlist import Artist, Track
+from app.dto.recommendation import Onboarding, Artist, Recommendation
 from db.database_postgres import PostgresSessionLocal, User
 from typing import Optional
 import logging
@@ -36,7 +36,7 @@ async def get_onboarding(onboadingRequest: OnboardingRequest):
         else:
             raise HTTPException(status_code=response.status_code, detail=response.json())
         
-@router.post("/test/onboarding")
+@router.post("/test/onboarding", response_model=list[Onboarding])
 async def get_onboarding_dummy_data(onboadingRequest: OnboardingRequest, db: Session = Depends(get_db)):
     find_user = db.query(User).filter(User.user_id == onboadingRequest.user_id).first()
     if not find_user:
@@ -45,27 +45,27 @@ async def get_onboarding_dummy_data(onboadingRequest: OnboardingRequest, db: Ses
     items1_id = [pair.item1 for pair in pairs]
     items2_id = [pair.item2 for pair in pairs]
     query = text("""
-                    SELECT 
-                        t.track_id,
-                        t.track AS track_name, 
-                        STRING_AGG(DISTINCT a.artist, ' & ' ORDER BY a.artist) AS artist_names,
-                        t.img_url
-                    FROM track t
-                    JOIN track_artist ta ON ta.track_id = t.track_id
-                    JOIN artist a ON ta.artist_id = a.artist_id
-                    WHERE t.track_id = ANY(:track_id)
-                    GROUP BY t.track, t.img_url, t.track_id
-                    ORDER BY ARRAY_POSITION(:track_id, t.track_id);
-                    """)
+        SELECT 
+            t.track_id,
+            t.track AS track_name, 
+            STRING_AGG(DISTINCT a.artist, ' & ' ORDER BY a.artist) AS artist_names,
+            t.img_url
+        FROM track t
+        JOIN track_artist ta ON ta.track_id = t.track_id
+        JOIN artist a ON ta.artist_id = a.artist_id
+        WHERE t.track_id = ANY(:track_id)
+        GROUP BY t.track, t.img_url, t.track_id
+        ORDER BY ARRAY_POSITION(:track_id, t.track_id);
+    """)
     results1 = db.execute(query, {"track_id": items1_id}).fetchall()
     results2 = db.execute(query, {"track_id": items2_id}).fetchall()
-    items1 = [Track(
+    items1 = [Onboarding(
         track_id=result[0],
         track_name=result[1],
         artists=[Artist(artist_name=result[2]).dict()],
         track_img_url=result[3],
     ).dict() for result in results1]
-    items2 = [Track(
+    items2 = [Onboarding(
         track_id=result[0],
         track_name=result[1],
         artists=[Artist(artist_name=result[2]).dict()],
@@ -73,7 +73,7 @@ async def get_onboarding_dummy_data(onboadingRequest: OnboardingRequest, db: Ses
     ).dict() for result in results2]
     return JSONResponse(status_code=200, content={"items1":items1, "items2":items2})
         
-@router.get("/playlists/{playlist_id}/tracks", response_model=list[Track])
+@router.get("/playlists/{playlist_id}/tracks", response_model=list[Recommendation])
 async def get_recommendation_by_playlists(playlist_id: str, user_id: int = Query(...), playlist_name: Optional[str] = None, \
                              db: Session = Depends(get_db)):
     find_user = db.query(User).filter(User.user_id == user_id).first()
@@ -109,22 +109,22 @@ async def get_recommendation_by_playlists(playlist_id: str, user_id: int = Query
         )
         if response.status_code == 200:
             query = text("""
-                    SELECT 
-                        t.track_id,
-                        t.track AS track_name, 
-                        STRING_AGG(DISTINCT a.artist, ' & ' ORDER BY a.artist) AS artist_names,
-                        t.img_url
-                    FROM track t
-                    JOIN track_artist ta ON ta.track_id = t.track_id
-                    JOIN artist a ON ta.artist_id = a.artist_id
-                    WHERE t.track_id = ANY(:track_id)
-                    GROUP BY t.track, t.img_url, t.track_id
-                    ORDER BY ARRAY_POSITION(:track_id, t.track_id);
-                    """)
+                SELECT 
+                    t.track_id,
+                    t.track AS track_name, 
+                    STRING_AGG(DISTINCT a.artist, ' & ' ORDER BY a.artist) AS artist_names,
+                    t.img_url
+                FROM track t
+                JOIN track_artist ta ON ta.track_id = t.track_id
+                JOIN artist a ON ta.artist_id = a.artist_id
+                WHERE t.track_id = ANY(:track_id)
+                GROUP BY t.track, t.img_url, t.track_id
+                ORDER BY ARRAY_POSITION(:track_id, t.track_id);
+            """)
             recommendations = []
             results = db.execute(query, {"track_id": response.json()['items']}).fetchall() 
             for result in results:
-                recommendations.append(Track(
+                recommendations.append(Recommendation(
                     track_id=result[0],
                     track_name=result[1],
                     artists=[Artist(artist_name=artist).dict() for artist in result[2].split(' & ')],
@@ -193,8 +193,8 @@ async def get_recommendation_by_image(ocrRecommendation: OCRRecommendation, db: 
     tracks = []
     for track, artist in track_artist:
         query = text("""
-            SELECT 
-                    t.track_id
+            SELECT
+                t.track_id
             FROM track t
             JOIN track_artist ta ON ta.track_id = t.track_id
             JOIN artist a ON ta.artist_id = a.artist_id
@@ -211,27 +211,26 @@ async def get_recommendation_by_image(ocrRecommendation: OCRRecommendation, db: 
         )
         if response.status_code == 200:
             query = text("""
-                    SELECT 
-                        t.track_id,
-                        t.track AS track_name, 
-                        STRING_AGG(DISTINCT a.artist, ' & ' ORDER BY a.artist) AS artist_names,
-                        t.img_url
-                    FROM track t
-                    JOIN track_artist ta ON ta.track_id = t.track_id
-                    JOIN artist a ON ta.artist_id = a.artist_id
-                    WHERE t.track_id = ANY(:track_id)
-                    GROUP BY t.track, t.img_url, t.track_id
-                    ORDER BY ARRAY_POSITION(:track_id, t.track_id);
-                    """)
+                SELECT 
+                    t.track_id,
+                    t.track AS track_name, 
+                    STRING_AGG(DISTINCT a.artist, ' & ' ORDER BY a.artist) AS artist_names,
+                    t.img_url
+                FROM track t
+                JOIN track_artist ta ON ta.track_id = t.track_id
+                JOIN artist a ON ta.artist_id = a.artist_id
+                WHERE t.track_id = ANY(:track_id)
+                GROUP BY t.track, t.img_url, t.track_id
+                ORDER BY ARRAY_POSITION(:track_id, t.track_id);
+            """)
             recommendations = []
             results = db.execute(query, {"track_id": response.json()['items']}).fetchall() 
             for result in results:
-                recommendations.append(Track(
+                recommendations.append(Recommendation(
                     track_id=result[0],
                     track_name=result[1],
                     artists=[Artist(artist_name=artist).dict() for artist in result[2].split(' & ')],
                     track_img_url=result[3],
                 ).dict())
 
-    return JSONResponse(status_code=200, content=tracks)
-
+    return JSONResponse(status_code=200, content=recommendations)
