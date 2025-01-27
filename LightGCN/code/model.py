@@ -20,20 +20,6 @@ class BasicModel(nn.Module):
     def getUsersRating(self, users):
         raise NotImplementedError
     
-class PairWiseModel(BasicModel):
-    def __init__(self):
-        super(PairWiseModel, self).__init__()
-    def bpr_loss(self, users, pos, neg):
-        """
-        Parameters:
-            users: users list 
-            pos: positive items for corresponding users
-            neg: negative items for corresponding users
-        Return:
-            (log-loss, l2-loss)
-        """
-        raise NotImplementedError
-    
 class LightGCN(BasicModel):
     def __init__(self, 
                  config:dict, 
@@ -46,25 +32,29 @@ class LightGCN(BasicModel):
     def __init_weight(self):
         self.num_users  = self.dataset.n_users
         self.num_items  = self.dataset.m_items
-        self.latent_dim = self.config.latent_dim_rec
-        self.n_layers = self.config.n_layers
-        self.keep_prob = self.config.keep_prob
-        self.A_split = self.config.A_split
+        self.latent_dim = self.config['latent_dim_rec']
+        self.n_layers = self.config['lightGCN_n_layers']
+        self.keep_prob = self.config['keep_prob']
+        self.A_split = self.config['A_split']
         self.embedding_user = torch.nn.Embedding(
             num_embeddings=self.num_users, embedding_dim=self.latent_dim)
         self.embedding_item = torch.nn.Embedding(
             num_embeddings=self.num_items, embedding_dim=self.latent_dim)
-        if self.config.finetune == False:
-            # random normal init seems to be a better choice when lightGCN actually don't use any non-linear activation function
+        if self.config['pretrain'] == 0:
+#             nn.init.xavier_uniform_(self.embedding_user.weight, gain=1)
+#             nn.init.xavier_uniform_(self.embedding_item.weight, gain=1)
+#             print('use xavier initilizer')
+# random normal init seems to be a better choice when lightGCN actually don't use any non-linear activation function
             nn.init.normal_(self.embedding_user.weight, std=0.1)
             nn.init.normal_(self.embedding_item.weight, std=0.1)
+            #world.cprint('use NORMAL distribution initilizer')
         else:
-            self.embedding_user.weight.data.copy_(torch.from_numpy(self.config.user_emb))
-            self.embedding_item.weight.data.copy_(torch.from_numpy(self.config.item_emb))
+            self.embedding_user.weight.data.copy_(torch.from_numpy(self.config['user_emb']))
+            self.embedding_item.weight.data.copy_(torch.from_numpy(self.config['item_emb']))
             print('use pretarined data')
         self.f = nn.Sigmoid()
         self.Graph = self.dataset.getSparseGraph()
-        print(f"lgn is already to go(dropout:{self.config.dropout})")
+        print(f"lgn is already to go(dropout:{self.config['dropout']})")
 
     def __dropout_x(self, x, keep_prob):
         size = x.size()
@@ -96,7 +86,7 @@ class LightGCN(BasicModel):
         all_emb = torch.cat([users_emb, items_emb])
         #   torch.split(all_emb , [self.num_users, self.num_items])
         embs = [all_emb]
-        if self.config.dropout:
+        if self.config['dropout']:
             if self.training:
                 print("droping")
                 g_droped = self.__dropout(self.keep_prob)
@@ -104,13 +94,12 @@ class LightGCN(BasicModel):
                 g_droped = self.Graph        
         else:
             g_droped = self.Graph    
-            
         
         for layer in range(self.n_layers):
             if self.A_split:
                 temp_emb = []
                 for f in range(len(g_droped)):
-                    temp_emb.append(torch.mm(g_droped[f], all_emb))
+                    temp_emb.append(torch.sparse.mm(g_droped[f], all_emb))
                 side_emb = torch.cat(temp_emb, dim=0)
                 all_emb = side_emb
             else:
@@ -141,10 +130,8 @@ class LightGCN(BasicModel):
     
     # loss 값 만드는 부분
     def bpr_loss(self, users, pos, neg):
-        # 범위를 초과하거나 음수가 있으면 문제
         (users_emb, pos_emb, neg_emb, 
         userEmb0,  posEmb0, negEmb0) = self.getEmbedding(users.long(), pos.long(), neg.long())
-        
         reg_loss = (1/2)*(userEmb0.norm(2).pow(2) + 
                          posEmb0.norm(2).pow(2)  +
                          negEmb0.norm(2).pow(2))/float(len(users))
