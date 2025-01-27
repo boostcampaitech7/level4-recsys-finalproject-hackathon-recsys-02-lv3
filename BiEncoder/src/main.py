@@ -9,7 +9,7 @@ def main():
     # Configuration
     config_path = "../config.yaml"
     batch_size = 32
-    num_epochs = 3
+    num_epochs = 10
     margin = 0.2
     save_path = "song_genre_model.pt"
 
@@ -42,12 +42,6 @@ def main():
 
     # Evaluation
     evaluate_model(song_encoder, genre_encoder, data_songs)
-
-    # # Inference
-    # print("inference start")
-    # test_song = data_songs[0]
-    # test_genres = ["instrumental", "piano", "covers"]
-    # infer_similarity(song_encoder, genre_encoder, test_song, test_genres)
 
 if __name__ == "__main__":
     main()

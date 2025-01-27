@@ -42,7 +42,7 @@ def fetch_data(conn) -> pd.DataFrame:
     """
     data = pd.read_sql(sql, conn)
     conn.close()
-    data = data.head(10000) # 빠른 실험을 위해 간소화(수정요망)
+    data = data.head(100000) # 빠른 실험을 위해 간소화(수정요망)
     return data
 
 def handle_missing_values(data: pd.DataFrame) -> pd.DataFrame:
@@ -90,7 +90,9 @@ def extract_unique_artists(data_songs: List[Dict]) -> List[str]:
             all_artists.update(song["artist"])
         elif isinstance(song["artist"], str):
             all_artists.add(song["artist"])
-        artist_list = ["<UNK>"] + sorted(all_artists)
+        else:
+            continue  # 잘못된 형식 무시
+        artist_list = ["<UNK>"] + sorted(filter(lambda x: x is not None, all_artists)) # 수정함
     return artist_list
 
 

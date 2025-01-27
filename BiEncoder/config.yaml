@@ -5,6 +5,13 @@ database:
   host: "HOST"
   port: "PORT"
 
+database_emb:
+  dbname: "DBNAME"
+  user: "USER"
+  password: "PASSWORD"
+  host: "HOST"
+  port: "PORT"
+
 model:
   bert_pretrained: "distilbert-base-uncased"
   mha_embed_dim: 64
@@ -16,8 +23,5 @@ model:
 training:
   num_epochs: 3
   learning_rate: 1e-4
+  batch_size: 32
   save_path: "song_genre_model.pt"
-
-inference:
-  test_song_index: 0
-  test_genres: ["instrumental", "piano", "covers"]
