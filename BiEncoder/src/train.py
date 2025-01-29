@@ -1,5 +1,6 @@
 import torch
 import torch.optim as optim
+import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from utils import cosine_triplet_margin_loss
@@ -77,15 +78,41 @@ def train_model(song_encoder, genre_encoder, data_songs: List[Dict],
         scheduler.step(avg_loss)
         print(f"Epoch {epoch+1}: Loss = {avg_loss:.4f}")
 
-    # Save model
-    torch.save({
+    save_model(song_encoder, genre_encoder, save_path)
+    print(f"Model saved to {save_path}")
+
+def save_model(song_encoder, genre_encoder, save_path="song_genre_model.pt"):
+    checkpoint = {
         "song_encoder_state": song_encoder.state_dict(),
-        "genre_encoder_state": genre_encoder.state_dict()
-    }, save_path)
+        "genre_encoder_state": genre_encoder.state_dict(),
+        "artist_vocab": {
+            "artist2id": song_encoder.artist_encoder.artist2id,
+            "id2artist": song_encoder.artist_encoder.id2artist
+        }
+    }
+    torch.save(checkpoint, save_path)
     print(f"Model saved to {save_path}")
 
 def load_model(song_encoder, genre_encoder, load_path="song_genre_model.pt"):
     checkpoint = torch.load(load_path, map_location=torch.device('cpu'))
+    
+    # control artist encoder embedding size
+    old_embedding_size = checkpoint["song_encoder_state"]["artist_encoder.embedding.weight"].shape[0]
+    if old_embedding_size != song_encoder.artist_encoder.embedding.num_embeddings:
+        new_embedding = nn.EmbeddingBag(old_embedding_size, 
+                                      song_encoder.artist_encoder.embed_dim, 
+                                      mode='mean')
+        with torch.no_grad():
+            new_embedding.weight.data = checkpoint["song_encoder_state"]["artist_encoder.embedding.weight"].data
+        
+        song_encoder.artist_encoder.embedding = new_embedding
+    
     song_encoder.load_state_dict(checkpoint["song_encoder_state"])
     genre_encoder.load_state_dict(checkpoint["genre_encoder_state"])
+    
+    if "artist_vocab" in checkpoint:
+        song_encoder.artist_encoder.artist2id = checkpoint["artist_vocab"]["artist2id"]
+        song_encoder.artist_encoder.id2artist = checkpoint["artist_vocab"]["id2artist"]
+    
     print(f"Model loaded from {load_path}")
+    return song_encoder, genre_encoder
