@@ -67,21 +67,12 @@ class NumericEncoder(nn.Module):
         x = self.linear2(x)
         return F.relu(x)
 
-# class SongEncoder(nn.Module):
-#     def __init__(self, artist_list, bert_pretrained="distilbert-base-uncased", 
-#                  mha_embed_dim=64, mha_heads=4, final_dim=32): 
-#         super().__init__()
-#         self.artist_encoder = ArtistEncoder(artist_list, embed_dim=mha_embed_dim)
-
-### 수정함
 class SongEncoder(nn.Module):
     def __init__(self, initial_artist_vocab_size=1000, bert_pretrained="distilbert-base-uncased", 
                  mha_embed_dim=64, mha_heads=4, final_dim=32): 
         super().__init__()
-        # artist_list 파라미터 제거하고 DynamicArtistEncoder 사용
         self.artist_encoder = DynamicArtistEncoder(initial_vocab_size=initial_artist_vocab_size, 
                                                  embed_dim=mha_embed_dim)
-                                                 ###
         self.track_encoder = BERTTextEncoder(pretrained_name=bert_pretrained, output_dim=mha_embed_dim)
         self.playlist_encoder = BERTTextEncoder(pretrained_name=bert_pretrained, output_dim=mha_embed_dim)
         self.genres_encoder = BERTTextEncoder(pretrained_name=bert_pretrained, output_dim=mha_embed_dim)
@@ -136,51 +127,53 @@ class GenreEncoder(nn.Module):
         x = F.relu(x)
         return F.normalize(x, p=2, dim=1)
 
-
-### 수정함
 class DynamicArtistEncoder(nn.Module):
     def __init__(self, initial_vocab_size=1000, embed_dim=64):
         super().__init__()
         self.embed_dim = embed_dim
         self.artist2id = {"<UNK>": 0}
         self.id2artist = ["<UNK>"]
-        self.embedding = nn.EmbeddingBag(initial_vocab_size, embed_dim, mode='mean')
+        self.embedding = nn.EmbeddingBag(
+            num_embeddings=initial_vocab_size, 
+            embedding_dim=embed_dim, 
+            mode='mean'
+        )
         
     def add_artist(self, artist):
         if artist not in self.artist2id:
             new_id = len(self.artist2id)
             if new_id >= self.embedding.num_embeddings:
-                # Embedding layer 크기 동적 확장
                 new_embedding = nn.EmbeddingBag(new_id + 100, self.embed_dim, mode='mean')
                 with torch.no_grad():
                     new_embedding.weight[:self.embedding.num_embeddings] = self.embedding.weight
                 self.embedding = new_embedding
+            
             self.artist2id[artist] = new_id
             self.id2artist.append(artist)
-            
+    
     def forward(self, artists_batch):
-        # 입력 형식 표준화
-        if isinstance(artists_batch, str):
-            artists_batch = [[artists_batch]]
-        elif isinstance(artists_batch[0], str):
-            artists_batch = [artists_batch]
-        elif not isinstance(artists_batch[0], list):
-            artists_batch = [[a] for a in artists_batch]
-        if isinstance(artists_batch[0], str):
-            artists_batch = [[a] for a in artists_batch]
-            
-        batch_indices = []
+        flattened_indices = []
+        offsets = [0]  
+        total_length = 0
+
         for artists in artists_batch:
-            # 새로운 아티스트 처리
             for artist in artists:
                 if artist not in self.artist2id:
                     self.add_artist(artist)
-            indices = [self.artist2id.get(a, 0) for a in artists]
-            if len(indices) == 0:
-                indices = [0]
-            batch_indices.append(indices)
             
-        idx_tensor = torch.tensor(batch_indices, dtype=torch.long, 
-                                device=self.embedding.weight.device)
-        return F.relu(self.embedding(idx_tensor))
-        ### 
+            indices = [self.artist2id[a] for a in artists] if len(artists) > 0 else [0]
+            flattened_indices.extend(indices)  
+            
+            total_length += len(indices)
+            offsets.append(total_length)
+
+        offsets = offsets[:-1] 
+
+        flattened_indices_t = torch.tensor(flattened_indices, dtype=torch.long, 
+                                           device=self.embedding.weight.device)
+        offsets_t = torch.tensor(offsets, dtype=torch.long, 
+                                 device=self.embedding.weight.device)
+
+        emb_out = self.embedding(flattened_indices_t, offsets_t)
+        
+        return F.relu(emb_out)

@@ -42,19 +42,19 @@ def fetch_data(conn) -> pd.DataFrame:
     """
     data = pd.read_sql(sql, conn)
     conn.close()
-    data = data.head(100000) # 빠른 실험을 위해 간소화(수정요망)
+    data = data.head(1000) # 빠른 실험을 위해 간소화(수정요망)
     return data
 
 def handle_missing_values(data: pd.DataFrame) -> pd.DataFrame:
     # fill nan(numeric)
-    data['length'].fillna(data['length'].mean(), inplace=True)
-    data['listeners'].fillna(data['listeners'].mean(), inplace=True)
+    data['length'] = data['length'].fillna(data['length'].mean())
+    data['listeners'] = data['listeners'].fillna(data['listeners'].mean())
     
     # fill nan(str)
-    data['artist'].fillna("<UNK>", inplace=True)
-    data['track'].fillna("<UNK>", inplace=True)
-    data['playlist'].fillna("<UNK>", inplace=True)
-    data['genres'].fillna("", inplace=True)  
+    data['artist'] = data['artist'].fillna("<UNK>")
+    data['track'] = data['track'].fillna("<UNK>")
+    data['playlist'] = data['playlist'].fillna("<UNK>")
+    data['genres'] = data['genres'].fillna("")
     
     return data
 
@@ -91,8 +91,8 @@ def extract_unique_artists(data_songs: List[Dict]) -> List[str]:
         elif isinstance(song["artist"], str):
             all_artists.add(song["artist"])
         else:
-            continue  # 잘못된 형식 무시
-        artist_list = ["<UNK>"] + sorted(filter(lambda x: x is not None, all_artists)) # 수정함
+            continue  
+        artist_list = ["<UNK>"] + sorted(filter(lambda x: x is not None, all_artists))
     return artist_list
 
 

@@ -3,7 +3,6 @@ from preprocess import preprocess_data
 from models import SongEncoder, GenreEncoder
 from train import train_model, load_model
 from eval import evaluate_model
-from inference import infer_similarity
 
 def main():
     # Configuration
@@ -18,7 +17,6 @@ def main():
     
     # Model initialization
     song_encoder = SongEncoder(
-        artist_list=artist_list,
         bert_pretrained="distilbert-base-uncased",
         mha_embed_dim=64,
         mha_heads=4,
