@@ -61,6 +61,9 @@ def custom_collate_fn(batch):
 
 
 def train_model(song_encoder, genre_encoder, data_songs: List[Dict], 
+                ### 수정함
+                scaler, 
+                ### 
                 num_epochs=10, batch_size=32, margin=0.2, 
                 save_path="song_genre_model.pt"):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -119,16 +122,23 @@ def train_model(song_encoder, genre_encoder, data_songs: List[Dict],
         scheduler.step(avg_loss)
         print(f"Epoch {epoch+1}: Loss = {avg_loss:.4f}")
 
-    save_model(song_encoder, genre_encoder, save_path)
+    ### 수정함
+    save_model(song_encoder, genre_encoder, scaler, save_path)
+    ###
 
-def save_model(song_encoder, genre_encoder, save_path="song_genre_model.pt"):
+### 수정함
+def save_model(song_encoder, genre_encoder, scaler, save_path="song_genre_model.pt"):
+###
     checkpoint = {
         "song_encoder_state": song_encoder.state_dict(),
         "genre_encoder_state": genre_encoder.state_dict(),
         "artist_vocab": {
             "artist2id": song_encoder.artist_encoder.artist2id,
             "id2artist": song_encoder.artist_encoder.id2artist
-        }
+        },
+        ### 수정함
+        "scaler": scaler
+        ### 
     }
     torch.save(checkpoint, save_path)
     print(f"Model saved to {save_path}")
@@ -152,6 +162,9 @@ def load_model(song_encoder, genre_encoder, load_path="song_genre_model.pt"):
     if "artist_vocab" in checkpoint:
         song_encoder.artist_encoder.artist2id = checkpoint["artist_vocab"]["artist2id"]
         song_encoder.artist_encoder.id2artist = checkpoint["artist_vocab"]["id2artist"]
-    
+        
+    ### 수정함
+    scaler = checkpoint.get("scaler", None)
+    ###
     print(f"Model loaded from {load_path}")
-    return song_encoder, genre_encoder
+    return song_encoder, genre_encoder, scaler

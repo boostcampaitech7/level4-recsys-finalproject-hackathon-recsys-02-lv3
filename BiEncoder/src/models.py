@@ -24,36 +24,7 @@ class BERTTextEncoder(nn.Module):
         x = self.linear(cls_emb)
         x = F.relu(x)
         return x
-
-class ArtistEncoder(nn.Module):
-    def __init__(self, artist_list, embed_dim=64):
-        super().__init__()
-        self.artist2id = {artist: i for i, artist in enumerate(artist_list)}
-        self.embedding = nn.Embedding(len(self.artist2id), embed_dim)
-
-    def forward(self, artists_batch):
-        if isinstance(artists_batch[0], str):
-            artists_batch = [[a] for a in artists_batch]  # 단일 샘플도 배치 형태로 변환
         
-        batch_indices = []
-        for artists in artists_batch:
-            indices = [self.artist2id.get(a, 0) for a in artists]
-            if len(indices) == 0:
-                indices = [0]
-            batch_indices.append(indices)
-        
-        max_len = max(len(indices) for indices in batch_indices)
-        padded_indices = [
-            indices + [0] * (max_len - len(indices)) 
-            for indices in batch_indices
-        ]
-        
-        idx_tensor = torch.tensor(padded_indices, dtype=torch.long, device=self.embedding.weight.device)
-        emb = self.embedding(idx_tensor)
-        emb_mean = emb.mean(dim=1)
-        return F.relu(emb_mean)
-
-
 class NumericEncoder(nn.Module):
     def __init__(self, input_dim=2, output_dim=64):
         super().__init__()

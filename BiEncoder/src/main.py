@@ -13,8 +13,10 @@ def main():
     save_path = "song_genre_model.pt"
 
     # Preprocess
-    data_songs, artist_list = preprocess_data(config_path)
-    
+    ### 수정함
+    data_songs, artist_list, scaler = preprocess_data(config_path, scaler=None)
+    ###
+
     # Model initialization
     song_encoder = SongEncoder(
         bert_pretrained="distilbert-base-uncased",
@@ -32,6 +34,9 @@ def main():
         song_encoder, 
         genre_encoder, 
         data_songs, 
+        ### 수정함
+        scaler=scaler, 
+        ### 
         num_epochs=num_epochs, 
         batch_size=batch_size,
         margin=margin, 

@@ -63,12 +63,8 @@ def main():
     # Load configuration
     config = load_config(config_path)
 
-    # Preprocess data
-    data_songs, artist_list = preprocess_data(config_path)
-
     # Initialize models
     song_encoder = SongEncoder(
-        artist_list=artist_list,
         bert_pretrained="distilbert-base-uncased",
         mha_embed_dim=64,
         mha_heads=4,
@@ -77,7 +73,10 @@ def main():
     genre_encoder = GenreEncoder()
 
     # Load trained models
-    load_model(song_encoder, genre_encoder, model_path)
+    song_encoder, genre_encoder, scaler = load_model(song_encoder, genre_encoder, model_path)
+
+    # Preprocess data
+    data_songs, artist_list = preprocess_data(config_path, scaler)
 
     # Generate and save embeddings
     generate_and_save_embeddings(song_encoder, data_songs, config)

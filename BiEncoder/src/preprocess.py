@@ -58,10 +58,18 @@ def handle_missing_values(data: pd.DataFrame) -> pd.DataFrame:
     
     return data
 
-def scale_numeric_features(data: pd.DataFrame, scale_cols: List[str] = ['listeners', 'length']) -> pd.DataFrame:
-    scaler = MinMaxScaler()
-    data[scale_cols] = scaler.fit_transform(data[scale_cols])
-    return data
+
+def scale_numeric_features(data: pd.DataFrame, scaler=None, 
+                           scale_cols: List[str] = ['listeners', 'length']):
+    if scaler is None:
+        scaler = MinMaxScaler()
+        data[scale_cols] = scaler.fit_transform(data[scale_cols])
+        return data, scaler
+    else:
+        # 이미 fit된 스케일러가 있으면 transform만
+        data[scale_cols] = scaler.transform(data[scale_cols])
+        return data
+###
 
 def dataframe_to_dict(data: pd.DataFrame) -> List[Dict]:
     data_songs = []
@@ -96,12 +104,27 @@ def extract_unique_artists(data_songs: List[Dict]) -> List[str]:
     return artist_list
 
 
-def preprocess_data(config_path):
+# def preprocess_data(config_path):
+#     config = load_config(config_path)
+#     conn = connect_db(config)
+#     data = fetch_data(conn)
+#     data = handle_missing_values(data)
+#     data = scale_numeric_features(data)
+#     data_songs = dataframe_to_dict(data)
+#     artist_list = extract_unique_artists(data_songs)
+#     return data_songs, artist_list
+def preprocess_data(config_path, scaler=None):
     config = load_config(config_path)
     conn = connect_db(config)
     data = fetch_data(conn)
     data = handle_missing_values(data)
-    data = scale_numeric_features(data)
-    data_songs = dataframe_to_dict(data)
-    artist_list = extract_unique_artists(data_songs)
-    return data_songs, artist_list
+    if scaler == None: 
+        data, scaler = scale_numeric_features(data, scaler=scaler)
+        data_songs = dataframe_to_dict(data)
+        artist_list = extract_unique_artists(data_songs)
+        return data_songs, artist_list, scaler
+    else: 
+        data = scale_numeric_features(data, scaler=scaler)
+        data_songs = dataframe_to_dict(data)
+        artist_list = extract_unique_artists(data_songs)
+        return data_songs, artist_list

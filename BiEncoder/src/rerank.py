@@ -107,7 +107,7 @@ def recommend_songs(
     )
     genre_encoder = GenreEncoder()
 
-    song_encoder, genre_encoder = load_model(song_encoder, genre_encoder, model_path)
+    song_encoder, genre_encoder, scaler = load_model(song_encoder, genre_encoder, model_path)
     song_encoder.to(device)
     genre_encoder.to(device)
     song_encoder.eval()
@@ -120,7 +120,7 @@ def recommend_songs(
     data = pd.DataFrame(response['missing'])
     data.columns = ['track', 'artist', 'playlist', 'genres', 'length', 'listeners']
     data = handle_missing_values(data)
-    data = scale_numeric_features(data)
+    data = scale_numeric_features(data, scaler=scaler)
     data_songs = dataframe_to_dict(data)
 
     playlist_embeddings_m = generate_embeddings(song_encoder, data_songs)
