@@ -13,16 +13,16 @@ def main():
     save_path = "song_genre_model.pt"
 
     # Preprocess
-    ### 수정함
-    data_songs, artist_list, scaler = preprocess_data(config_path, scaler=None)
-    ###
+    data_songs, artist_list, scaler, cluster_embeds, clusters_dict = preprocess_data(config_path, scaler=None)
 
     # Model initialization
     song_encoder = SongEncoder(
         bert_pretrained="distilbert-base-uncased",
         mha_embed_dim=64,
         mha_heads=4,
-        final_dim=32
+        final_dim=32, 
+        cluster_embeds=cluster_embeds,
+        clusters_dict=clusters_dict
     )
     genre_encoder = GenreEncoder(
         pretrained_name="distilbert-base-uncased",
@@ -34,9 +34,7 @@ def main():
         song_encoder, 
         genre_encoder, 
         data_songs, 
-        ### 수정함
         scaler=scaler, 
-        ### 
         num_epochs=num_epochs, 
         batch_size=batch_size,
         margin=margin, 

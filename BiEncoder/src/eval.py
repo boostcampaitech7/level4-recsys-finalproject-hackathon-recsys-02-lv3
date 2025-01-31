@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from typing import List, Dict
+from train import custom_collate_fn
 
 class SongDataset(Dataset):
     def __init__(self, data_songs):
@@ -28,7 +29,7 @@ def evaluate_model(song_encoder, genre_encoder, data_songs: List[Dict], batch_si
     genre_encoder.eval()
 
     dataset = SongDataset(data_songs)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, collate_fn = custom_collate_fn)
 
     correct = 0
     total = 0

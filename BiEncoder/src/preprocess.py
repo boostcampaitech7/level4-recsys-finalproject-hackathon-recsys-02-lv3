@@ -2,6 +2,7 @@ import pandas as pd
 import psycopg2
 from sklearn.preprocessing import MinMaxScaler
 import ast
+import torch
 from typing import List, Dict
 
 def load_config(config_path: str) -> Dict:
@@ -29,7 +30,7 @@ def fetch_data(conn) -> pd.DataFrame:
         t.listeners,
         t.length,
         array_agg(DISTINCT a.artist) AS artist,  
-        string_agg(DISTINCT g.genre, ', ')   AS genres,
+        string_agg(DISTINCT g.genre, ', ') AS genres,
         string_agg(DISTINCT p.playlist, ', ') AS playlist
     FROM track t
     LEFT JOIN track_artist ta    ON t.track_id = ta.track_id
@@ -39,9 +40,13 @@ def fetch_data(conn) -> pd.DataFrame:
     LEFT JOIN track_playlist tp  ON t.track_id = tp.track_id
     LEFT JOIN playlist p         ON tp.playlist_id = p.playlist_id
     GROUP BY t.track_id, t.track, t.listeners, t.length
+    LIMIT 2000
     """
     data = pd.read_sql(sql, conn)
     conn.close()
+
+    data["genres"] = data["genres"].fillna("").apply(lambda x: x.split(", ") if x else [])
+
     data = data.head(1000) # 빠른 실험을 위해 간소화(수정요망)
     return data
 
@@ -66,10 +71,8 @@ def scale_numeric_features(data: pd.DataFrame, scaler=None,
         data[scale_cols] = scaler.fit_transform(data[scale_cols])
         return data, scaler
     else:
-        # 이미 fit된 스케일러가 있으면 transform만
         data[scale_cols] = scaler.transform(data[scale_cols])
         return data
-###
 
 def dataframe_to_dict(data: pd.DataFrame) -> List[Dict]:
     data_songs = []
@@ -103,28 +106,43 @@ def extract_unique_artists(data_songs: List[Dict]) -> List[str]:
         artist_list = ["<UNK>"] + sorted(filter(lambda x: x is not None, all_artists))
     return artist_list
 
+@torch.no_grad()
+def compute_cluster_embeddings(clusters_dict, encoder):
+    encoder.eval()
+    cluster_embeddings = {}
 
-# def preprocess_data(config_path):
-#     config = load_config(config_path)
-#     conn = connect_db(config)
-#     data = fetch_data(conn)
-#     data = handle_missing_values(data)
-#     data = scale_numeric_features(data)
-#     data_songs = dataframe_to_dict(data)
-#     artist_list = extract_unique_artists(data_songs)
-#     return data_songs, artist_list
+    for cid, genre_list in clusters_dict.items():
+        batch_texts_emb = encoder(genre_list)
+        cluster_mean_emb = batch_texts_emb.mean(dim=0)
+        cluster_embeddings[cid] = cluster_mean_emb
+
+    return cluster_embeddings
+
 def preprocess_data(config_path, scaler=None):
     config = load_config(config_path)
     conn = connect_db(config)
     data = fetch_data(conn)
     data = handle_missing_values(data)
+    clusters_dict = config['clusters']
+
+    # train
     if scaler == None: 
         data, scaler = scale_numeric_features(data, scaler=scaler)
         data_songs = dataframe_to_dict(data)
         artist_list = extract_unique_artists(data_songs)
-        return data_songs, artist_list, scaler
+
+        from models import DistilBertTextEncoder
+        encoder = DistilBertTextEncoder(pretrained_name="distilbert-base-uncased", output_dim=64)
+        cluster_embeds = compute_cluster_embeddings(clusters_dict, encoder)#, device=device)
+        return data_songs, artist_list, scaler, cluster_embeds, clusters_dict
+
+    # eval 
     else: 
         data = scale_numeric_features(data, scaler=scaler)
         data_songs = dataframe_to_dict(data)
         artist_list = extract_unique_artists(data_songs)
-        return data_songs, artist_list
+
+        from models import DistilBertTextEncoder
+        encoder = DistilBertTextEncoder(pretrained_name="distilbert-base-uncased", output_dim=64)
+        cluster_embeds = compute_cluster_embeddings(clusters_dict, encoder)#, device=device)
+        return data_songs, artist_list, cluster_embeds, clusters_dict

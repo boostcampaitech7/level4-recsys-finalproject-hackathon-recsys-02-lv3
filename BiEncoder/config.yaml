@@ -25,3 +25,201 @@ training:
   learning_rate: 1e-4
   batch_size: 32
   save_path: "song_genre_model.pt"
+
+clusters:
+  1:
+    [
+      "rock",
+      "indie rock",
+      "alternative rock",
+      "classic rock",
+      "hard rock",
+      "progressive rock",
+      "punk rock",
+      "blues rock",
+      "grunge",
+      "post-rock",
+    ]
+  2:
+    [
+      "electronic",
+      "dance",
+      "house",
+      "techno",
+      "dubstep",
+      "electro",
+      "trance",
+      "electronica",
+      "drum and bass",
+    ]
+  3:
+    [
+      "pop",
+      "indie pop",
+      "synthpop",
+      "pop punk",
+      "power pop",
+      "pop rock",
+      "britpop",
+      "electropop",
+      "2010s",
+    ]
+  4:
+    [
+      "hip-hop",
+      "rap",
+      "trap",
+      "underground hip-hop",
+      "gangsta rap",
+      "dirty south",
+      "hip hop",
+      "old school",
+    ]
+  5:
+    [
+      "jazz",
+      "blues",
+      "soul",
+      "funk",
+      "jazz fusion",
+      "rhythm and blues",
+      "neo-soul",
+      "vocal jazz",
+      "swing",
+      "motown",
+    ]
+  6:
+    [
+      "metal",
+      "heavy metal",
+      "thrash metal",
+      "death metal",
+      "nu metal",
+      "progressive metal",
+      "industrial",
+      "stoner rock",
+      "metalcore",
+      "glam rock",
+      "alternative metal",
+    ]
+  7:
+    [
+      "country",
+      "folk",
+      "acoustic",
+      "americana",
+      "bluegrass",
+      "alt-country",
+      "singer-songwriter",
+      "indie folk",
+      "folk rock",
+    ]
+  8:
+    [
+      "punk",
+      "emo",
+      "pop punk",
+      "ska",
+      "hardcore punk",
+      "garage rock",
+      "post-punk",
+      "screamo",
+    ]
+  9: 
+    [
+      "indie", 
+      "alternative", 
+      "new wave", 
+      "post-rock", 
+      "noise pop", 
+      "math rock"
+    ]
+  10: 
+    [
+      "lo-fi", 
+      "dream pop", 
+      "shoegaze", 
+      "psychedelic"
+   
+    ]
+  11:
+    [
+      "spanish",
+      "latin",
+      "reggaeton",
+      "flamenco",
+      "salsa",
+      "spanish rock",
+      "latin rock",
+    ]
+  12:
+    [
+      "60s",
+      "70s",
+      "80s",
+      "90s",
+      "00s",
+      "oldies",
+      "old school",
+      "rockabilly",
+      "new wave",
+    ]
+  13: 
+    [
+      "rnb", 
+      "r&b", 
+      "lush", 
+      "beautiful", 
+      "sensual", 
+      "sexy"
+    ]
+  14:
+    [
+      "instrumental",
+      "piano",
+      "classical",
+      "soundtrack",
+      "orchestral",
+      "guitar",
+      "saxophone",
+      "contemporary classical",
+      "baroque",
+    ]
+  15:
+    [
+      "chillout",
+      "downtempo",
+      "mellow",
+      "lounge",
+      "chill",
+      "ambient",
+      "trip-hop",
+      "chillwave",
+    ]
+  16: 
+    [
+      "party", 
+      "disco", 
+      "dance", 
+      "electro house", 
+      "catchy", 
+      "summer"
+    ]
+  17: 
+    [
+      "experimental", 
+      "avant-garde", 
+      "glitch", 
+      "idm"
+    ]
+  18:
+    [
+      "love",
+      "romantic",
+      "sad",
+      "melancholy",
+      "ballad",
+      "heartbreak",
+      "yearning",
+      "emotional",
+    ]

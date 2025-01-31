@@ -40,13 +40,15 @@ class NumericEncoder(nn.Module):
 
 class SongEncoder(nn.Module):
     def __init__(self, initial_artist_vocab_size=1000, bert_pretrained="distilbert-base-uncased", 
-                 mha_embed_dim=64, mha_heads=4, final_dim=32): 
+                 mha_embed_dim=64, mha_heads=4, final_dim=32, cluster_embeds=None, clusters_dict=None): 
         super().__init__()
         self.artist_encoder = DynamicArtistEncoder(initial_vocab_size=initial_artist_vocab_size, 
                                                  embed_dim=mha_embed_dim)
         self.track_encoder = BERTTextEncoder(pretrained_name=bert_pretrained, output_dim=mha_embed_dim)
         self.playlist_encoder = BERTTextEncoder(pretrained_name=bert_pretrained, output_dim=mha_embed_dim)
-        self.genres_encoder = BERTTextEncoder(pretrained_name=bert_pretrained, output_dim=mha_embed_dim)
+
+        self.genres_encoder = GenreClusterEncoder(clusters_dict, cluster_embeds, pretrained_name=bert_pretrained, embed_dim=mha_embed_dim)
+
         self.numeric_encoder = NumericEncoder(input_dim=2, output_dim=mha_embed_dim)
 
         self.mha = nn.MultiheadAttention(embed_dim=mha_embed_dim, num_heads=mha_heads, batch_first=True)
@@ -148,3 +150,72 @@ class DynamicArtistEncoder(nn.Module):
         emb_out = self.embedding(flattened_indices_t, offsets_t)
         
         return F.relu(emb_out)
+
+class DistilBertTextEncoder(torch.nn.Module):
+    def __init__(self, pretrained_name="distilbert-base-uncased", output_dim=64):
+        super().__init__()
+        self.tokenizer = AutoTokenizer.from_pretrained(pretrained_name)
+        self.bert = AutoModel.from_pretrained(pretrained_name)
+
+        for param in self.bert.parameters():
+            param.requires_grad = False
+
+        self.linear = torch.nn.Linear(768, output_dim)
+    
+    def forward(self, texts):
+
+        inputs = self.tokenizer(texts, return_tensors="pt", truncation=True, padding=True)
+        inputs = {k: v for k, v in inputs.items()}
+
+        outputs = self.bert(**inputs)
+        cls_emb = outputs.last_hidden_state[:, 0, :] 
+        x = self.linear(cls_emb) 
+        x = F.relu(x)
+        return x
+
+class GenreClusterEncoder(nn.Module):
+    def __init__(self, clusters_dict, cluster_embeds, pretrained_name="distilbert-base-uncased", embed_dim=64):
+
+        super().__init__()
+        self.clusters_dict = clusters_dict
+        self.cluster_embeds = {cid: emb.clone().detach() for cid, emb in cluster_embeds.items()}  # No grad
+        self.tokenizer = AutoTokenizer.from_pretrained(pretrained_name)
+        self.bert = AutoModel.from_pretrained(pretrained_name)
+
+        for param in self.bert.parameters():
+            param.requires_grad = False
+
+        self.linear = nn.Linear(768, embed_dim)
+
+    def infer_cluster_for_genres(self, genres, device):
+        known_cluster_embs = []
+        unknown_genres = []
+
+        for g in genres:
+            found = False
+            for cid, glist in self.clusters_dict.items():
+                if g in glist:
+                    known_cluster_embs.append(self.cluster_embeds[cid].to(device))
+                    found = True
+                    break
+            if not found:
+                unknown_genres.append(g)
+
+        if unknown_genres:
+            inputs = self.tokenizer(unknown_genres, return_tensors="pt", truncation=True, padding=True)
+            inputs = {k: v.to(device) for k, v in inputs.items()}
+            with torch.no_grad():
+                outputs = self.bert(**inputs)
+            texts_emb = outputs.last_hidden_state[:, 0, :] 
+            unknown_emb = self.linear(texts_emb).mean(dim=0) 
+            known_cluster_embs.append(F.relu(unknown_emb))
+
+        if len(known_cluster_embs) == 0:
+            return torch.zeros(self.linear.out_features, device=device)
+        else:
+            return torch.stack(known_cluster_embs, dim=0).mean(dim=0)
+
+    def forward(self, genres_batch):
+        device = next(self.parameters()).device
+        batch_embeddings = [self.infer_cluster_for_genres(genres, device) for genres in genres_batch]
+        return torch.stack(batch_embeddings, dim=0)
