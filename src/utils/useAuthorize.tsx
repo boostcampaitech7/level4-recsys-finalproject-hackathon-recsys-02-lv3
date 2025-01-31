@@ -11,7 +11,9 @@ const useAuthorize = () => {
   const saveSession = (id: string, profileImage?: string) => {
     setUserInfo({ id: Number(id), profileImage });
     safeLocalStorage.set("user_id", id);
-    profileImage && safeLocalStorage.set("user_img_url", profileImage);
+    if (profileImage) {
+      safeLocalStorage.set("user_img_url", profileImage);
+    }
   };
 
   useEffect(() => {
