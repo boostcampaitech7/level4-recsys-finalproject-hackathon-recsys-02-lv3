@@ -2,6 +2,7 @@
 사용자의 positive/negative item을 함께 모델링하는 데이터셋
 """
 import os
+import random
 import torch
 import numpy as np
 import pandas as pd
@@ -85,26 +86,27 @@ class Loader(BasicDataset):
             for l in f.readlines():
                 if len(l) > 0:
                     uid, items = l.strip('\n').split('\t')
-                    items = list(map(int, items.split()))
+                    uid = int(uid)
+                    items = list(set(list(map(int, items.split()))))
+                    random.shuffle(items)
                     if config.test:
                         split = int(len(items)*0.8)
                         train_items, test_items = items[:split], items[split:]
                         testUser.extend([uid]*len(test_items))
                         testItem.extend(test_items)
-                    uid = int(uid)
                     trainUniqueUsers.append(uid)
                     trainUser.extend([uid] * len(train_items))
                     trainItem.extend(train_items)
                     self.m_item = max(self.m_item, max(items))
                     self.n_user = max(self.n_user, uid)
                     self.traindataSize += len(train_items)
-        self.m_item += 1
-        self.n_user += 1
+        
         self.trainUniqueUsers = np.array(trainUniqueUsers)
         self.trainUser = np.array(trainUser)
         self.trainItem = np.array(trainItem)
         self.testUser = np.array(testUser)
         self.testItem = np.array(testItem)
+        assert len(self.testUser) == len(self.testItem)
         
         self.Graph = None
         print(f"{self.trainDataSize} interactions for training")
@@ -118,15 +120,18 @@ class Loader(BasicDataset):
                     items = list(map(int, items.split()))
                     uid = int(uid)
                     trainUniqueUsers.append(uid)
-                    self.m_item = max(self.m_item, max(items))
+                    self.m_item = max(self.m_item, max(items)) if len(items)!=0 else self.m_item
                     self.n_user = max(self.n_user, uid)
                     self.traindataSize += len(items)
                     for iid in items:
                         neg_list.append((uid,iid))
-            neg_lil_net = lil_matrix((self.n_user, self.m_item))
-            for pair in neg_list:        
-                neg_lil_net[pair] = -1
-            neg_lil_net = neg_lil_net.tocoo()
+        self.m_item += 1
+        self.n_user += 1
+        neg_lil_net = lil_matrix((self.n_user, self.m_item))
+        
+        for pair in neg_list:
+            neg_lil_net[pair] = -1
+        neg_lil_net = neg_lil_net.tocoo()
         
         # (users,items), bipartite graph
         self.UserItemNet = csr_matrix((np.ones(len(self.trainUser)), (self.trainUser, self.trainItem)),
@@ -259,7 +264,7 @@ class Loader(BasicDataset):
     def buildValidSet(self):
         testDict = {}
         for i, item in enumerate(self.testItem):
-            user = self.trainUser[i]
+            user = self.testUser[i]
             if testDict.get(user):
                 testDict[user].append(item)
             else:
