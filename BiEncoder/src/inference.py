@@ -4,7 +4,7 @@ import numpy as np
 from torch.utils.data import Dataset, DataLoader
 from preprocess import preprocess_data, load_config, connect_db
 from models import SongEncoder, GenreEncoder
-from train import load_model
+from train import load_model, custom_collate_fn
 from eval import SongDataset
 import logging
 
@@ -14,7 +14,7 @@ def generate_and_save_embeddings(song_encoder, data_songs, config):
     song_encoder.eval()
 
     dataset = SongDataset(data_songs)
-    dataloader = DataLoader(dataset, batch_size=32, shuffle=False)
+    dataloader = DataLoader(dataset, batch_size=32, shuffle=False, collate_fn = custom_collate_fn)
 
     # Database connection
     conn = psycopg2.connect(
@@ -55,7 +55,6 @@ def generate_and_save_embeddings(song_encoder, data_songs, config):
     conn.close()
     logging.info("Embeddings saved to database successfully")
 
-
 def main():
     config_path = "../config.yaml"
     model_path = "song_genre_model.pt"
@@ -63,20 +62,8 @@ def main():
     # Load configuration
     config = load_config(config_path)
 
-    # Initialize models
-    song_encoder = SongEncoder(
-        bert_pretrained="distilbert-base-uncased",
-        mha_embed_dim=64,
-        mha_heads=4,
-        final_dim=32
-    )
-    genre_encoder = GenreEncoder()
-
-    # Load trained models
-    song_encoder, genre_encoder, scaler = load_model(song_encoder, genre_encoder, model_path)
-
-    # Preprocess data
-    data_songs, artist_list = preprocess_data(config_path, scaler)
+    # Load trained models and preprocessed data
+    song_encoder, genre_encoder, scaler, data_songs = load_model(config_path, model_path)
 
     # Generate and save embeddings
     generate_and_save_embeddings(song_encoder, data_songs, config)

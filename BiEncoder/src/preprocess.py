@@ -40,14 +40,14 @@ def fetch_data(conn) -> pd.DataFrame:
     LEFT JOIN track_playlist tp  ON t.track_id = tp.track_id
     LEFT JOIN playlist p         ON tp.playlist_id = p.playlist_id
     GROUP BY t.track_id, t.track, t.listeners, t.length
-    LIMIT 10000
+    LIMIT 100
     """
     data = pd.read_sql(sql, conn)
     conn.close()
 
     data["genres"] = data["genres"].fillna("").apply(lambda x: x.split(", ") if x else [])
 
-    data = data.head(10000) # 빠른 실험을 위해 간소화(수정요망)
+    data = data.head(100) # 빠른 실험을 위해 간소화(수정요망)
     return data
 
 def handle_missing_values(data: pd.DataFrame) -> pd.DataFrame:
@@ -58,9 +58,7 @@ def handle_missing_values(data: pd.DataFrame) -> pd.DataFrame:
     data['track'] = data['track'].fillna("<UNK>")
     data['playlist'] = data['playlist'].fillna("<UNK>")
     data['genres'] = data['genres'].fillna("")
-    
     return data
-
 
 def scale_numeric_features(data: pd.DataFrame, scaler=None, 
                            scale_cols: List[str] = ['listeners', 'length']):
@@ -86,24 +84,6 @@ def dataframe_to_dict(data: pd.DataFrame) -> List[Dict]:
         })
     return data_songs
 
-def extract_unique_artists(data_songs: List[Dict]) -> List[str]:
-    all_artists = set()
-    for song in data_songs:
-        if song["artist"] is None:
-            continue
-        
-        if isinstance(song["artist"], str) and song["artist"].startswith("[") and song["artist"].endswith("]"):
-            artists = ast.literal_eval(song["artist"]) 
-            all_artists.update(artists)
-        elif isinstance(song["artist"], list):
-            all_artists.update(song["artist"])
-        elif isinstance(song["artist"], str):
-            all_artists.add(song["artist"])
-        else:
-            continue  
-        artist_list = ["<UNK>"] + sorted(filter(lambda x: x is not None, all_artists))
-    return artist_list
-
 @torch.no_grad()
 def compute_cluster_embeddings(clusters_dict, encoder):
     encoder.eval()
@@ -127,20 +107,18 @@ def preprocess_data(config_path, scaler=None):
     if scaler == None: 
         data, scaler = scale_numeric_features(data, scaler=scaler)
         data_songs = dataframe_to_dict(data)
-        artist_list = extract_unique_artists(data_songs)
 
         from models import DistilBertTextEncoder
         encoder = DistilBertTextEncoder(pretrained_name="distilbert-base-uncased", output_dim=64)
         cluster_embeds = compute_cluster_embeddings(clusters_dict, encoder)
-        return data_songs, artist_list, scaler, cluster_embeds, clusters_dict
+        return data_songs, scaler, cluster_embeds, clusters_dict
 
     # eval 
     else: 
         data = scale_numeric_features(data, scaler=scaler)
         data_songs = dataframe_to_dict(data)
-        artist_list = extract_unique_artists(data_songs)
 
         from models import DistilBertTextEncoder
         encoder = DistilBertTextEncoder(pretrained_name="distilbert-base-uncased", output_dim=64)
         cluster_embeds = compute_cluster_embeddings(clusters_dict, encoder)
-        return data_songs, artist_list, cluster_embeds, clusters_dict
+        return data_songs, cluster_embeds, clusters_dict

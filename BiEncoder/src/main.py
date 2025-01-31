@@ -12,7 +12,7 @@ def main():
     config_model = config['model']
 
     # Preprocess
-    data_songs, artist_list, scaler, cluster_embeds, clusters_dict = preprocess_data(config_path, scaler=None)
+    data_songs, scaler, cluster_embeds, clusters_dict = preprocess_data(config_path, scaler=None)
 
     # Model initialization
     song_encoder = SongEncoder(
