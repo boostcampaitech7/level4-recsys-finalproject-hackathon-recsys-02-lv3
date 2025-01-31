@@ -116,10 +116,19 @@ class DynamicArtistEncoder(nn.Module):
         if artist not in self.artist2id:
             new_id = len(self.artist2id)
             if new_id >= self.embedding.num_embeddings:
-                new_embedding = nn.EmbeddingBag(new_id + 100, self.embed_dim, mode='mean')
+                # new_embedding = nn.EmbeddingBag(new_id + 100, self.embed_dim, mode='mean')
+                # with torch.no_grad():
+                #     new_embedding.weight[:self.embedding.num_embeddings] = self.embedding.weight
+                # self.embedding = new_embedding
+
+                device = self.embedding.weight.device  # 기존 임베딩이 있는 디바이스 확인
+
+                new_embedding = nn.EmbeddingBag(new_id + 100, self.embed_dim, mode='mean').to(device)  # ✅ GPU로 이동
                 with torch.no_grad():
-                    new_embedding.weight[:self.embedding.num_embeddings] = self.embedding.weight
+                    new_embedding.weight[:self.embedding.num_embeddings] = self.embedding.weight.to(device)  # ✅ GPU로 이동
+
                 self.embedding = new_embedding
+
             
             self.artist2id[artist] = new_id
             self.id2artist.append(artist)

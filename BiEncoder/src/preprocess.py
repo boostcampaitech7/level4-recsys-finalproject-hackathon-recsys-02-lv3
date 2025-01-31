@@ -40,22 +40,20 @@ def fetch_data(conn) -> pd.DataFrame:
     LEFT JOIN track_playlist tp  ON t.track_id = tp.track_id
     LEFT JOIN playlist p         ON tp.playlist_id = p.playlist_id
     GROUP BY t.track_id, t.track, t.listeners, t.length
-    LIMIT 2000
+    LIMIT 10000
     """
     data = pd.read_sql(sql, conn)
     conn.close()
 
     data["genres"] = data["genres"].fillna("").apply(lambda x: x.split(", ") if x else [])
 
-    data = data.head(1000) # 빠른 실험을 위해 간소화(수정요망)
+    data = data.head(10000) # 빠른 실험을 위해 간소화(수정요망)
     return data
 
 def handle_missing_values(data: pd.DataFrame) -> pd.DataFrame:
-    # fill nan(numeric)
     data['length'] = data['length'].fillna(data['length'].mean())
     data['listeners'] = data['listeners'].fillna(data['listeners'].mean())
     
-    # fill nan(str)
     data['artist'] = data['artist'].fillna("<UNK>")
     data['track'] = data['track'].fillna("<UNK>")
     data['playlist'] = data['playlist'].fillna("<UNK>")
@@ -133,7 +131,7 @@ def preprocess_data(config_path, scaler=None):
 
         from models import DistilBertTextEncoder
         encoder = DistilBertTextEncoder(pretrained_name="distilbert-base-uncased", output_dim=64)
-        cluster_embeds = compute_cluster_embeddings(clusters_dict, encoder)#, device=device)
+        cluster_embeds = compute_cluster_embeddings(clusters_dict, encoder)
         return data_songs, artist_list, scaler, cluster_embeds, clusters_dict
 
     # eval 
@@ -144,5 +142,5 @@ def preprocess_data(config_path, scaler=None):
 
         from models import DistilBertTextEncoder
         encoder = DistilBertTextEncoder(pretrained_name="distilbert-base-uncased", output_dim=64)
-        cluster_embeds = compute_cluster_embeddings(clusters_dict, encoder)#, device=device)
+        cluster_embeds = compute_cluster_embeddings(clusters_dict, encoder)
         return data_songs, artist_list, cluster_embeds, clusters_dict
