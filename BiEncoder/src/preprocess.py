@@ -40,20 +40,19 @@ def fetch_data(conn) -> pd.DataFrame:
     LEFT JOIN track_playlist tp  ON t.track_id = tp.track_id
     LEFT JOIN playlist p         ON tp.playlist_id = p.playlist_id
     GROUP BY t.track_id, t.track, t.listeners, t.length
-    LIMIT 100
+    LIMIT 10000
     """
     data = pd.read_sql(sql, conn)
     conn.close()
 
     data["genres"] = data["genres"].fillna("").apply(lambda x: x.split(", ") if x else [])
 
-    data = data.head(100) # 빠른 실험을 위해 간소화(수정요망)
+    data = data.head(10000) # 빠른 실험을 위해 간소화(수정요망)
     return data
 
 def handle_missing_values(data: pd.DataFrame) -> pd.DataFrame:
     data['length'] = data['length'].fillna(data['length'].mean())
     data['listeners'] = data['listeners'].fillna(data['listeners'].mean())
-    
     data['artist'] = data['artist'].fillna("<UNK>")
     data['track'] = data['track'].fillna("<UNK>")
     data['playlist'] = data['playlist'].fillna("<UNK>")
@@ -95,6 +94,23 @@ def compute_cluster_embeddings(clusters_dict, encoder):
         cluster_embeddings[cid] = cluster_mean_emb
 
     return cluster_embeddings
+
+def load_playlist(config_path):
+    config = load_config(config_path)
+    conn = connect_db(config) 
+    sql = """
+    SELECT p.playlist, a.artist
+    FROM playlist p
+    JOIN track_playlist tp ON p.playlist_id = tp.playlist_id
+    JOIN track_artist ta ON tp.track_id = ta.track_id
+    JOIN artist a ON ta.artist_id = a.artist_id
+    LIMIT 200
+    """
+    df = pd.read_sql(sql, conn)
+    playlist_info = df.groupby('playlist')['artist'].apply(list).to_dict()
+    conn.close()
+
+    return playlist_info
 
 def preprocess_data(config_path, scaler=None):
     config = load_config(config_path)

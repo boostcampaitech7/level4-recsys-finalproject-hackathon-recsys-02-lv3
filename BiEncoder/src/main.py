@@ -1,5 +1,5 @@
 import torch
-from preprocess import load_config, preprocess_data
+from preprocess import load_config, preprocess_data, load_playlist
 from models import SongEncoder, GenreEncoder
 from train import train_model, load_model
 from eval import evaluate_model
@@ -13,6 +13,7 @@ def main():
 
     # Preprocess
     data_songs, scaler, cluster_embeds, clusters_dict = preprocess_data(config_path, scaler=None)
+    playlist_info = load_playlist(config_path)
 
     # Model initialization
     song_encoder = SongEncoder(
@@ -20,6 +21,7 @@ def main():
         mha_embed_dim=config_model['mha_embed_dim'],
         mha_heads=config_model['mha_heads'],
         final_dim=config_model['final_dim'], 
+        playlist_info=playlist_info,
         cluster_embeds=cluster_embeds,
         clusters_dict=clusters_dict
     )

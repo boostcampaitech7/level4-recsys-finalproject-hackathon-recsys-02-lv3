@@ -1,3 +1,4 @@
+import networkx as nx
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -39,15 +40,14 @@ class NumericEncoder(nn.Module):
         return F.relu(x)
 
 class SongEncoder(nn.Module):
-    def __init__(self, initial_artist_vocab_size=1000, bert_pretrained="distilbert-base-uncased", 
-                 mha_embed_dim=64, mha_heads=4, final_dim=32, cluster_embeds=None, clusters_dict=None): 
+    def __init__(self, bert_pretrained="distilbert-base-uncased", 
+                 mha_embed_dim=64, mha_heads=4, final_dim=32, playlist_info=None, cluster_embeds=None, clusters_dict=None): 
         super().__init__()
-        self.artist_encoder = DynamicArtistEncoder(initial_vocab_size=initial_artist_vocab_size, 
-                                                 embed_dim=mha_embed_dim)
+        self.artist_encoder = PlaylistAwareArtistEncoder(playlist_info, output_dim=mha_embed_dim)
         self.track_encoder = BERTTextEncoder(pretrained_name=bert_pretrained, output_dim=mha_embed_dim)
         self.playlist_encoder = BERTTextEncoder(pretrained_name=bert_pretrained, output_dim=mha_embed_dim)
 
-        self.genres_encoder = GenreClusterEncoder(clusters_dict, cluster_embeds, pretrained_name=bert_pretrained, embed_dim=mha_embed_dim)
+        self.genres_encoder = GenreClusterEncoder(clusters_dict, cluster_embeds, pretrained_name=bert_pretrained, output_dim=mha_embed_dim)
 
         self.numeric_encoder = NumericEncoder(input_dim=2, output_dim=mha_embed_dim)
 
@@ -100,65 +100,66 @@ class GenreEncoder(nn.Module):
         x = F.relu(x)
         return F.normalize(x, p=2, dim=1)
 
-class DynamicArtistEncoder(nn.Module):
-    def __init__(self, initial_vocab_size=1000, embed_dim=64):
+class PlaylistAwareArtistEncoder(nn.Module):
+    def __init__(self, playlist_info, output_dim=64):
         super().__init__()
-        self.embed_dim = embed_dim
-        self.artist2id = {"<UNK>": 0}
-        self.id2artist = ["<UNK>"]
-        self.embedding = nn.EmbeddingBag(
-            num_embeddings=initial_vocab_size, 
-            embedding_dim=embed_dim, 
-            mode='mean'
-        )
+        self.output_dim = output_dim
+        self.artist2id = {}
+        self.id2artist = {}
+        self.playlist_info = playlist_info
+        self.graph = self.create_artist_graph(playlist_info)
         
-    def add_artist(self, artist):
+        # Dynamic artist registration
+        unique_artists = list(self.graph.nodes())
+        self.artist2id = {artist: idx for idx, artist in enumerate(unique_artists)}
+        self.id2artist = {idx: artist for artist, idx in self.artist2id.items()} 
+        
+        self.embedding = nn.Embedding(len(unique_artists) + 100, output_dim)
+        self.init_embeddings_with_graph_info()
+
+    def create_artist_graph(self, playlist_info):
+        G = nx.Graph()
+        for playlist_artists in playlist_info.values():
+            for i in range(len(playlist_artists)):
+                for j in range(i+1, len(playlist_artists)):
+                    G.add_edge(playlist_artists[i], playlist_artists[j])
+        return G
+
+    def register_new_artist(self, artist):
         if artist not in self.artist2id:
             new_id = len(self.artist2id)
+            self.artist2id[artist] = new_id
+            self.id2artist[new_id] = artist
+            
+            # Expand embedding layer
             if new_id >= self.embedding.num_embeddings:
-                # new_embedding = nn.EmbeddingBag(new_id + 100, self.embed_dim, mode='mean')
-                # with torch.no_grad():
-                #     new_embedding.weight[:self.embedding.num_embeddings] = self.embedding.weight
-                # self.embedding = new_embedding
-
-                device = self.embedding.weight.device  # 기존 임베딩이 있는 디바이스 확인
-
-                new_embedding = nn.EmbeddingBag(new_id + 100, self.embed_dim, mode='mean').to(device)  # ✅ GPU로 이동
-                with torch.no_grad():
-                    new_embedding.weight[:self.embedding.num_embeddings] = self.embedding.weight.to(device)  # ✅ GPU로 이동
-
+                device = self.embedding.weight.device 
+                new_embedding = nn.Embedding(new_id + 100, self.output_dim).to(device)
+                new_embedding.weight.data[:self.embedding.num_embeddings] = self.embedding.weight.data.to(device)
                 self.embedding = new_embedding
 
-            
-            self.artist2id[artist] = new_id
-            self.id2artist.append(artist)
-    
+    def init_embeddings_with_graph_info(self):
+        centrality = nx.pagerank(self.graph)
+        for artist, idx in self.artist2id.items():
+            self.embedding.weight.data[idx] = torch.randn(self.output_dim) * centrality.get(artist, 0.5)
+
     def forward(self, artists_batch):
-        flattened_indices = []
-        offsets = [0]  
-        total_length = 0
+        batch_embeddings = []
+        device = self.embedding.weight.device
 
-        for artists in artists_batch:
-            for artist in artists:
-                if artist not in self.artist2id:
-                    self.add_artist(artist)
-            
-            indices = [self.artist2id[a] for a in artists] if len(artists) > 0 else [0]
-            flattened_indices.extend(indices)  
-            
-            total_length += len(indices)
-            offsets.append(total_length)
-
-        offsets = offsets[:-1] 
-
-        flattened_indices_t = torch.tensor(flattened_indices, dtype=torch.long, 
-                                           device=self.embedding.weight.device)
-        offsets_t = torch.tensor(offsets, dtype=torch.long, 
-                                 device=self.embedding.weight.device)
-
-        emb_out = self.embedding(flattened_indices_t, offsets_t)
+        for track_artists in artists_batch:
+            # Dynamically register new artists
+            for artist in track_artists:
+                self.register_new_artist(artist)
+            # Get embeddings for each artist in the track
+            track_emb = [
+                self.embedding(torch.tensor(self.artist2id[artist], device=device))
+                for artist in track_artists
+            ]
+            # Average embeddings for the track
+            batch_embeddings.append(torch.mean(torch.stack(track_emb), dim=0))
         
-        return F.relu(emb_out)
+        return torch.stack(batch_embeddings)
 
 class DistilBertTextEncoder(torch.nn.Module):
     def __init__(self, pretrained_name="distilbert-base-uncased", output_dim=64):
@@ -183,7 +184,7 @@ class DistilBertTextEncoder(torch.nn.Module):
         return x
 
 class GenreClusterEncoder(nn.Module):
-    def __init__(self, clusters_dict, cluster_embeds, pretrained_name="distilbert-base-uncased", embed_dim=64):
+    def __init__(self, clusters_dict, cluster_embeds, pretrained_name="distilbert-base-uncased", output_dim=64):
 
         super().__init__()
         self.clusters_dict = clusters_dict
@@ -194,7 +195,7 @@ class GenreClusterEncoder(nn.Module):
         for param in self.bert.parameters():
             param.requires_grad = False
 
-        self.linear = nn.Linear(768, embed_dim)
+        self.linear = nn.Linear(768, output_dim)
 
     def infer_cluster_for_genres(self, genres, device):
         known_cluster_embs = []

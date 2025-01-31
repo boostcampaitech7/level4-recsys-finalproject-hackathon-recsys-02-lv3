@@ -88,7 +88,6 @@ def fetch_track_embeddings_from_db(
 
     return candidate_embeddings
 
-
 def recommend_songs(
     response,
     candidates_track_ids,
@@ -98,16 +97,7 @@ def recommend_songs(
     config = load_config(config_path)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    song_encoder = SongEncoder(
-        initial_artist_vocab_size=1000,
-        bert_pretrained="distilbert-base-uncased",
-        mha_embed_dim=64,
-        mha_heads=4,
-        final_dim=32
-    )
-    genre_encoder = GenreEncoder()
-
-    song_encoder, genre_encoder, scaler = load_model(song_encoder, genre_encoder, model_path)
+    song_encoder, genre_encoder, scaler, data_songs = load_model(config_path, model_path)
     song_encoder.to(device)
     genre_encoder.to(device)
     song_encoder.eval()

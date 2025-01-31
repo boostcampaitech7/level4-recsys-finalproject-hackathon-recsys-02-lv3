@@ -5,7 +5,7 @@ from torch.utils.data import Dataset, DataLoader
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from models import SongEncoder, GenreEncoder
-from preprocess import preprocess_data
+from preprocess import preprocess_data, load_playlist
 from utils import cosine_triplet_margin_loss
 
 from typing import List, Dict
@@ -143,12 +143,14 @@ def load_model(config_path, model_path="song_genre_model.pt"):
     checkpoint = torch.load(model_path, map_location=torch.device('cpu'))
 
     data_songs, cluster_embeds, clusters_dict = preprocess_data(config_path, checkpoint.get("scaler"))
+    playlist_info = load_playlist(config_path)
 
     song_encoder = SongEncoder(
         bert_pretrained="distilbert-base-uncased",
         mha_embed_dim=64,
         mha_heads=4,
         final_dim=32,
+        playlist_info = playlist_info, 
         cluster_embeds=cluster_embeds,
         clusters_dict=clusters_dict
     )
@@ -156,9 +158,8 @@ def load_model(config_path, model_path="song_genre_model.pt"):
 
     old_embedding_size = checkpoint["song_encoder_state"]["artist_encoder.embedding.weight"].shape[0]
     if old_embedding_size != song_encoder.artist_encoder.embedding.num_embeddings:
-        new_embedding = nn.EmbeddingBag(old_embedding_size, 
-                                        song_encoder.artist_encoder.embed_dim, 
-                                        mode='mean')
+        new_embedding = nn.Embedding(old_embedding_size, 
+                                        song_encoder.artist_encoder.output_dim)
         with torch.no_grad():
             new_embedding.weight.data = checkpoint["song_encoder_state"]["artist_encoder.embedding.weight"].data
 

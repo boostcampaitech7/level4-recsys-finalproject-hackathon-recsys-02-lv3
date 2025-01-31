@@ -2,7 +2,7 @@ import torch
 import psycopg2
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
-from preprocess import preprocess_data, load_config, connect_db
+from preprocess import load_config
 from models import SongEncoder, GenreEncoder
 from train import load_model, custom_collate_fn
 from eval import SongDataset
