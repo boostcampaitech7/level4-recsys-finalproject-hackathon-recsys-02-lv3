@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     MODEL_API_URL: str
     UPSTAGE_OCR_API_URL: str
     UPSTAGE_API_KEY: str
+    LASTFM_API_KEY: str
+    LASTFM_API_URL: str
 
     class Config:
         env_file = "app/config/.env"

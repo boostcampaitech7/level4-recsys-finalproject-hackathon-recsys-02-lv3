@@ -10,6 +10,19 @@ class PlaylistRecommendation(BaseModel):
     user_id: int
     items: list[int]
 
+class TrackMetaData(BaseModel):
+    track_name: str
+    artist_name: str
+    playlist_name: Optional[str] = "내 플레이리스트"
+    genres: list[str]
+    length: int
+    listeners: int
+
+class RecommendationRequest(BaseModel):
+    user_id: int
+    exists: list[int]
+    missing: list[TrackMetaData]
+
 class TrackIdPair(BaseModel):
     item1: int
     item2: int
