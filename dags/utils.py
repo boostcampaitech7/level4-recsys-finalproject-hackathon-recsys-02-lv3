@@ -10,6 +10,9 @@ class Config:
     DB_HOST = Variable.get("DB_HOST")
     DB_PORT = Variable.get("DB_PORT")
 
+    MONGO_DB_NAME = Variable.get("MONGO_DB_NAME")
+    MONGO_DB_PASSWORD = Variable.get("MONGO_DB_PASSWORD")
+
     REGIONS = Variable.get("REGIONS", deserialize_json=True)
 
     BUCKET_NAME = Variable.get("BUCKET_NAME")
@@ -23,3 +26,6 @@ class Directory:
     AIRFLOW_HOME = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
     DOWNLOADS_DIR = os.path.join(AIRFLOW_HOME, 'download')
     TRANSFORM_DIR = os.path.join(AIRFLOW_HOME, 'transform')
+    LIGHTGCN_DIR = os.path.join(AIRFLOW_HOME, 'LightGCN')
+    BIENCODER_DIR = os.path.join(AIRFLOW_HOME, 'BiEncoder')
+
