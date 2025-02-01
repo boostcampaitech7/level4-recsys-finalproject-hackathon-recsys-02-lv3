@@ -5,15 +5,15 @@ import torch.nn.functional as F
 from transformers import AutoTokenizer, AutoModel
 
 class BERTTextEncoder(nn.Module):
-    def __init__(self, pretrained_name="distilbert-base-uncased", output_dim=64):
+    def __init__(self, config):
         super().__init__()
-        self.tokenizer = AutoTokenizer.from_pretrained(pretrained_name)
-        self.bert = AutoModel.from_pretrained(pretrained_name)
+        self.tokenizer = AutoTokenizer.from_pretrained(config.model.bert_pretrained)
+        self.bert = AutoModel.from_pretrained(config.model.bert_pretrained)
 
         for param in self.bert.parameters():
             param.requires_grad = False
 
-        self.linear = nn.Linear(768, output_dim)
+        self.linear = nn.Linear(768, config.model.output_dim)
     
     def forward(self, texts):
         texts = [str(text) for text in texts]
@@ -27,10 +27,10 @@ class BERTTextEncoder(nn.Module):
         return x
         
 class NumericEncoder(nn.Module):
-    def __init__(self, input_dim=2, output_dim=64):
+    def __init__(self, config):
         super().__init__()
-        self.linear1 = nn.Linear(input_dim, 64)
-        self.linear2 = nn.Linear(64, output_dim)
+        self.linear1 = nn.Linear(2, 64)
+        self.linear2 = nn.Linear(64, config.model.output_dim)
 
     def forward(self, x):
         if len(x.shape) == 1:
@@ -40,19 +40,18 @@ class NumericEncoder(nn.Module):
         return F.relu(x)
 
 class SongEncoder(nn.Module):
-    def __init__(self, bert_pretrained="distilbert-base-uncased", 
-                 mha_embed_dim=64, mha_heads=4, final_dim=32, playlist_info=None, cluster_embeds=None, clusters_dict=None): 
+    def __init__(self, config, playlist_info=None, cluster_embeds=None, clusters_dict=None): 
         super().__init__()
-        self.artist_encoder = PlaylistAwareArtistEncoder(playlist_info, output_dim=mha_embed_dim)
-        self.track_encoder = BERTTextEncoder(pretrained_name=bert_pretrained, output_dim=mha_embed_dim)
-        self.playlist_encoder = BERTTextEncoder(pretrained_name=bert_pretrained, output_dim=mha_embed_dim)
+        self.artist_encoder = PlaylistAwareArtistEncoder(playlist_info, output_dim=config.model.mha_embed_dim)
+        self.track_encoder = BERTTextEncoder(config)
+        self.playlist_encoder = BERTTextEncoder(config)
 
-        self.genres_encoder = GenreClusterEncoder(clusters_dict, cluster_embeds, pretrained_name=bert_pretrained, output_dim=mha_embed_dim)
+        self.genres_encoder = GenreClusterEncoder(clusters_dict, cluster_embeds, config)
 
-        self.numeric_encoder = NumericEncoder(input_dim=2, output_dim=mha_embed_dim)
+        self.numeric_encoder = NumericEncoder(config)
 
-        self.mha = nn.MultiheadAttention(embed_dim=mha_embed_dim, num_heads=mha_heads, batch_first=True)
-        self.final_fc = nn.Linear(mha_embed_dim, final_dim)
+        self.mha = nn.MultiheadAttention(embed_dim=config.model.mha_embed_dim, num_heads=config.model.mha_heads, batch_first=True)
+        self.final_fc = nn.Linear(config.model.mha_embed_dim, config.model.final_dim)
         nn.init.xavier_uniform_(self.final_fc.weight)
 
     def forward(self, artists, tracks, playlists, listeners, lengths, genres):
@@ -75,11 +74,11 @@ class SongEncoder(nn.Module):
         return F.normalize(final_emb, p=2, dim=1)
 
 class GenreEncoder(nn.Module):
-    def __init__(self, pretrained_name="distilbert-base-uncased", embed_dim=32):
+    def __init__(self, config):
         super().__init__()
-        self.tokenizer = AutoTokenizer.from_pretrained(pretrained_name)
-        self.bert = AutoModel.from_pretrained(pretrained_name)
-        self.linear = nn.Linear(768, embed_dim)
+        self.tokenizer = AutoTokenizer.from_pretrained(config.model.bert_pretrained)
+        self.bert = AutoModel.from_pretrained(config.model.bert_pretrained)
+        self.linear = nn.Linear(768, config.model.genre_embed_dim)
 
         for param in self.bert.parameters():
             param.requires_grad = False
@@ -184,18 +183,18 @@ class DistilBertTextEncoder(torch.nn.Module):
         return x
 
 class GenreClusterEncoder(nn.Module):
-    def __init__(self, clusters_dict, cluster_embeds, pretrained_name="distilbert-base-uncased", output_dim=64):
+    def __init__(self, clusters_dict, cluster_embeds, config):
 
         super().__init__()
         self.clusters_dict = clusters_dict
         self.cluster_embeds = {cid: emb.clone().detach() for cid, emb in cluster_embeds.items()}  # No grad
-        self.tokenizer = AutoTokenizer.from_pretrained(pretrained_name)
-        self.bert = AutoModel.from_pretrained(pretrained_name)
+        self.tokenizer = AutoTokenizer.from_pretrained(config.model.bert_pretrained)
+        self.bert = AutoModel.from_pretrained(config.model.bert_pretrained)
 
         for param in self.bert.parameters():
             param.requires_grad = False
 
-        self.linear = nn.Linear(768, output_dim)
+        self.linear = nn.Linear(768, config.model.output_dim) 
 
     def infer_cluster_for_genres(self, genres, device):
         known_cluster_embs = []

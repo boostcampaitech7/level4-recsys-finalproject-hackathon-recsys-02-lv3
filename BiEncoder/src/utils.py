@@ -1,15 +1,15 @@
 import torch.nn.functional as F
 
-def cosine_triplet_margin_loss(anchor, positive, negative, margin=0.2):
+def cosine_triplet_margin_loss(anchor, positive, negative, config):
     pos_dist = 1.0 - F.cosine_similarity(anchor, positive, dim=1)
     neg_dist = 1.0 - F.cosine_similarity(anchor, negative, dim=1)
-    losses = F.relu(pos_dist - neg_dist + margin)
+    losses = F.relu(pos_dist - neg_dist + config.model.margin)
     return losses.mean()
 
 class EarlyStopping:
-    def __init__(self, patience=2, min_delta=0.001):
-        self.patience = patience
-        self.min_delta = min_delta
+    def __init__(self, config):
+        self.patience = config.training.early_stopping_patience
+        self.min_delta = config.training.early_stopping_min_delta  
         self.best_loss = None
         self.counter = 0
         self.early_stop = False

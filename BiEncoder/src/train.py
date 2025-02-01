@@ -7,6 +7,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from models import SongEncoder, GenreEncoder
 from preprocess import preprocess_data, load_playlist
 from utils import cosine_triplet_margin_loss, EarlyStopping
+from omegaconf import OmegaConf
 
 
 import ast 
@@ -84,10 +85,7 @@ def train_model(song_encoder, genre_encoder, data_songs: List[Dict],
         lr=config.training.lr
     )
     scheduler = ReduceLROnPlateau(optimizer, 'min', patience=config.training.scheduler_patience)
-    early_stopping = EarlyStopping(
-        patience=config.training.early_stopping_patience, 
-        min_delta=config.training.early_stopping_min_delta
-    )
+    early_stopping = EarlyStopping(config)
 
     best_loss = float("inf")  # 초기 best loss 설정
 
@@ -113,7 +111,7 @@ def train_model(song_encoder, genre_encoder, data_songs: List[Dict],
 
             neg_embs = genre_encoder(genres[1:] + [genres[0]])
 
-            loss = cosine_triplet_margin_loss(anchor_embs, pos_embs, neg_embs, config.model.margin)
+            loss = cosine_triplet_margin_loss(anchor_embs, pos_embs, neg_embs, config)
             
             optimizer.zero_grad()
             loss.backward()
@@ -152,16 +150,15 @@ def load_model(config_path, model_path="song_genre_model.pt"):
     data_songs, cluster_embeds, clusters_dict = preprocess_data(config_path, checkpoint.get("scaler"))
     playlist_info = load_playlist(config_path)
 
+    config = OmegaConf.load(config_path)
+    # Model initialization
     song_encoder = SongEncoder(
-        bert_pretrained="distilbert-base-uncased",
-        mha_embed_dim=64,
-        mha_heads=4,
-        final_dim=32,
-        playlist_info = playlist_info, 
+        config,
+        playlist_info=playlist_info,
         cluster_embeds=cluster_embeds,
         clusters_dict=clusters_dict
     )
-    genre_encoder = GenreEncoder()
+    genre_encoder = GenreEncoder(config)
 
     old_embedding_size = checkpoint["song_encoder_state"]["artist_encoder.embedding.weight"].shape[0]
     if old_embedding_size != song_encoder.artist_encoder.embedding.num_embeddings:
@@ -198,6 +195,6 @@ def save_best_model(song_encoder, genre_encoder, scaler, save_path, best_loss, c
             "scaler": scaler
         }
         torch.save(checkpoint, save_path)
-        print(f"✅ Best model saved to {save_path}")
-        return current_loss  # 새로운 best loss 반환
+        print(f"Best model saved to {save_path}")
+        return current_loss 
     return best_loss

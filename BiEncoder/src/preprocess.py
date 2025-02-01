@@ -1,7 +1,6 @@
 import pandas as pd
 import psycopg2
 from sklearn.preprocessing import MinMaxScaler
-import ast
 import torch
 from typing import List, Dict
 
@@ -40,14 +39,14 @@ def fetch_data(conn) -> pd.DataFrame:
     LEFT JOIN track_playlist tp  ON t.track_id = tp.track_id
     LEFT JOIN playlist p         ON tp.playlist_id = p.playlist_id
     GROUP BY t.track_id, t.track, t.listeners, t.length
-    LIMIT 10000
+    LIMIT 10
     """
     data = pd.read_sql(sql, conn)
     conn.close()
 
     data["genres"] = data["genres"].fillna("").apply(lambda x: x.split(", ") if x else [])
 
-    data = data.head(10000) # 빠른 실험을 위해 간소화(수정요망)
+    data = data.head(10)
     return data
 
 def handle_missing_values(data: pd.DataFrame) -> pd.DataFrame:

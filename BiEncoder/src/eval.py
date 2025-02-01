@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from typing import List, Dict
+from omegaconf import OmegaConf
 from train import custom_collate_fn
 
 class SongDataset(Dataset):
@@ -21,7 +22,7 @@ class SongDataset(Dataset):
             "genres": self.data[idx]["genres"]
         }
 
-def evaluate_model(song_encoder, genre_encoder, data_songs: List[Dict], batch_size=32) -> float:
+def evaluate_model(song_encoder, genre_encoder, data_songs: List[Dict], config) -> float:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     song_encoder.to(device)
     genre_encoder.to(device)
@@ -29,7 +30,12 @@ def evaluate_model(song_encoder, genre_encoder, data_songs: List[Dict], batch_si
     genre_encoder.eval()
 
     dataset = SongDataset(data_songs)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, collate_fn = custom_collate_fn)
+    dataloader = DataLoader(
+        dataset, 
+        batch_size=config.training.batch_size,
+        shuffle=False, 
+        collate_fn = custom_collate_fn
+    )
 
     correct = 0
     total = 0

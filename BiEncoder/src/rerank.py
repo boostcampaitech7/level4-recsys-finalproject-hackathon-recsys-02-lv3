@@ -1,21 +1,14 @@
 import torch
+from torch.nn.functional import normalize
 import psycopg2
-import numpy as np
 import pandas as pd
 import logging
-
 from typing import List, Dict
-from torch.nn.functional import normalize
+from omegaconf import OmegaConf
 
-from preprocess import (
-    load_config,
-    handle_missing_values,
-    scale_numeric_features,
-    dataframe_to_dict)
-from models import SongEncoder, GenreEncoder
+from preprocess import handle_missing_values, scale_numeric_features, dataframe_to_dict
 from train import load_model
 from pgvector.psycopg2 import register_vector
-
 
 def generate_embeddings(song_encoder, data_songs: List[Dict]) -> torch.Tensor:
     embeddings_list = []
@@ -49,20 +42,16 @@ def generate_embeddings(song_encoder, data_songs: List[Dict]) -> torch.Tensor:
     else:
         return torch.tensor([]).to(device)
 
-
-def fetch_track_embeddings_from_db(
-    track_ids: List[int],
-    config: Dict
-) -> Dict[int, torch.Tensor]:
+def fetch_track_embeddings_from_db(track_ids: List[int], config) -> Dict[int, torch.Tensor]:
     conn = None
     candidate_embeddings = {}
     try:
         conn = psycopg2.connect(
-            dbname=config['database_emb']['dbname'],
-            user=config['database_emb']['user'],
-            password=config['database_emb']['password'],
-            host=config['database_emb']['host'],
-            port=config['database_emb']['port']
+            dbname=config.database_emb.dbname,
+            user=config.database_emb.user,
+            password=config.database_emb.password,
+            host=config.database_emb.host,
+            port=config.database_emb.port
         )
 
         register_vector(conn)
@@ -88,13 +77,9 @@ def fetch_track_embeddings_from_db(
 
     return candidate_embeddings
 
-def recommend_songs(
-    response,
-    candidates_track_ids,
-    config_path,
-    model_path):
+def recommend_songs(response, candidates_track_ids, config_path, model_path):
 
-    config = load_config(config_path)
+    config = OmegaConf.load(config_path)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     song_encoder, genre_encoder, scaler, data_songs = load_model(config_path, model_path)

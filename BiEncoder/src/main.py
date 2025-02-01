@@ -16,18 +16,12 @@ def main():
 
     # Model initialization
     song_encoder = SongEncoder(
-        bert_pretrained=config.model.bert_pretrained,
-        mha_embed_dim=config.model.mha_embed_dim,
-        mha_heads=config.model.mha_heads,
-        final_dim=config.model.final_dim, 
+        config,
         playlist_info=playlist_info,
         cluster_embeds=cluster_embeds,
         clusters_dict=clusters_dict
     )
-    genre_encoder = GenreEncoder(
-        pretrained_name=config.model.bert_pretrained,
-        embed_dim=config.model.genre_embed_dim
-    )
+    genre_encoder = GenreEncoder(config)
 
     train_model(
         song_encoder, 
@@ -38,7 +32,7 @@ def main():
     )
 
     # Evaluation
-    evaluate_model(song_encoder, genre_encoder, data_songs)
+    evaluate_model(song_encoder, genre_encoder, data_songs, config)
 
 if __name__ == "__main__":
     main()
