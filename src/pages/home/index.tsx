@@ -1,17 +1,18 @@
 import { css } from "@emotion/react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { AuthGuard } from "~/components/AuthGuard";
 import FileUploadButton from "~/components/FileUploadButton";
 import { ProfileImage } from "~/components/ProfileImage";
 import { Spacing } from "~/components/Spacing";
-import { playlistQuery } from "~/remotes";
+import { playlistQuery, postOcrImageMutation } from "~/remotes";
 import { useUserId } from "~/utils/userInfoContext";
 
 const HomePage = () => {
   const navigate = useNavigate();
   const userId = useUserId();
   const { data } = useQuery(playlistQuery(userId));
+  const { mutateAsync: mutateOcrImage } = useMutation(postOcrImageMutation);
 
   return (
     <>
@@ -32,11 +33,13 @@ const HomePage = () => {
         {data?.items.map((v) => (
           <div
             key={v.playlist_id}
-            onClick={() => navigate(`/playlist/${v.playlist_id}`)}
+            onClick={() =>
+              navigate(`/playlist/${v.playlist_id}?name=${v.playlist_name}`)
+            }
           >
             <div
               css={css({
-                width: "150px", // 원하는 크기로 조정 가능
+                width: "150px",
                 height: "150px",
                 overflow: "hidden",
                 display: "flex",
@@ -61,7 +64,16 @@ const HomePage = () => {
       </div>
       <br />
       <div>
-        <FileUploadButton onFileSelect={(file) => console.log(file.name)} />
+        <FileUploadButton
+          onFileSelect={async (file) => {
+            const ocrResult = await mutateOcrImage({
+              user_id: userId,
+              image: file,
+            });
+            console.log(ocrResult);
+            navigate(`/ocr?data=${encodeURIComponent(ocrResult)}`);
+          }}
+        />
       </div>
     </>
   );
