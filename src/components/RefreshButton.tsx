@@ -1,8 +1,14 @@
 import { css } from "@emotion/react";
 import { ComponentProps } from "react";
+import RefreshIcon from "~/assets/svg/ArrowClockwise.svg";
 
 export const RefreshButton = (props: ComponentProps<"button">) => {
-  return <button {...props} css={refreshButtonStyle} />;
+  return (
+    <>
+      <button {...props} css={refreshButtonStyle} />
+      <img src={RefreshIcon} alt="Refresh Icon" />
+    </>
+  );
 };
 
 // https://emotion.sh/docs/css-prop#use-the-css-prop
