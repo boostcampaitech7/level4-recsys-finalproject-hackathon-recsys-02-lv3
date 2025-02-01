@@ -16,7 +16,6 @@
     "@suspensive/react-query": "^2.16.1",
     "@tanstack/react-query": "^4.32.6",
     "@tanstack/react-query-devtools": "^4.32.6",
-    "@toss/storage": "^1.4.1",
     "axios": "^1.7.9",
     "emotion-rgba": "^0.0.12",
     "lottie-react": "^2.4.0",
