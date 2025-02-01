@@ -6,10 +6,11 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from models import SongEncoder, GenreEncoder
 from preprocess import preprocess_data, load_playlist
-from utils import cosine_triplet_margin_loss
+from utils import cosine_triplet_margin_loss, EarlyStopping
 
-from typing import List, Dict
+
 import ast 
+from typing import List, Dict
 
 class SongDataset(Dataset):
     def __init__(self, data_songs):
@@ -65,33 +66,37 @@ def custom_collate_fn(batch):
 
 
 def train_model(song_encoder, genre_encoder, data_songs: List[Dict], 
-                scaler, 
-                num_epochs=10, batch_size=32, margin=0.2, 
-                save_path="song_genre_model.pt"):
+                scaler, config):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     song_encoder.to(device)
     genre_encoder.to(device)
 
     dataset = SongDataset(data_songs)
-    dataloader = DataLoader(dataset, 
-                    batch_size=batch_size, 
-                    shuffle=True, 
-                    pin_memory=True, 
-                    collate_fn = custom_collate_fn)
+    dataloader = DataLoader(
+        dataset,
+        batch_size=config.training.batch_size, 
+        shuffle=True, 
+        pin_memory=True, 
+        collate_fn = custom_collate_fn)
 
     optimizer = optim.Adam(
         list(song_encoder.parameters()) + list(genre_encoder.parameters()), 
-        lr=1e-4
+        lr=config.training.lr
     )
-    scheduler = ReduceLROnPlateau(optimizer, 'min', patience=2)
+    scheduler = ReduceLROnPlateau(optimizer, 'min', patience=config.training.scheduler_patience)
+    early_stopping = EarlyStopping(
+        patience=config.training.early_stopping_patience, 
+        min_delta=config.training.early_stopping_min_delta
+    )
 
-    for epoch in range(num_epochs):
+    best_loss = float("inf")  # 초기 best loss 설정
+
+    for epoch in range(config.training.num_epochs):
         song_encoder.train()
         genre_encoder.train()
         total_loss = 0.0
 
         for batch in dataloader:
-            # Prepare batch data
             artists = batch["artist"]
             tracks = batch["track"]
             playlists = batch["playlist"]
@@ -99,20 +104,16 @@ def train_model(song_encoder, genre_encoder, data_songs: List[Dict],
             lengths = batch["length"]
             genres = batch["genres"]
 
-            # Compute song embeddings
             anchor_embs = song_encoder(
                 artists, tracks, playlists, 
                 listeners, lengths, genres
             )
 
-            # Compute genre embeddings
             pos_embs = genre_encoder(genres)
 
-            # Simple negative sampling (circular shift)
             neg_embs = genre_encoder(genres[1:] + [genres[0]])
 
-            # Compute loss
-            loss = cosine_triplet_margin_loss(anchor_embs, pos_embs, neg_embs, margin)
+            loss = cosine_triplet_margin_loss(anchor_embs, pos_embs, neg_embs, config.model.margin)
             
             optimizer.zero_grad()
             loss.backward()
@@ -123,8 +124,14 @@ def train_model(song_encoder, genre_encoder, data_songs: List[Dict],
         avg_loss = total_loss / len(dataloader)
         scheduler.step(avg_loss)
         print(f"Epoch {epoch+1}: Loss = {avg_loss:.4f}")
+            
+        best_loss = save_best_model(song_encoder, genre_encoder, scaler, config.training.save_path, best_loss, avg_loss)
 
-    save_model(song_encoder, genre_encoder, scaler, save_path)
+        if early_stopping(avg_loss):
+            print(f"Early stopping at epoch {epoch+1}")
+            break
+
+    save_model(song_encoder, genre_encoder, scaler, config.training.save_path)
 
 def save_model(song_encoder, genre_encoder, scaler, save_path="song_genre_model.pt"):
     checkpoint = {
@@ -175,3 +182,22 @@ def load_model(config_path, model_path="song_genre_model.pt"):
     scaler = checkpoint.get("scaler", None)
     print(f"Model loaded from {model_path}")
     return song_encoder, genre_encoder, scaler, data_songs
+
+def save_best_model(song_encoder, genre_encoder, scaler, save_path, best_loss, current_loss):
+    """ 
+    현재 Loss가 더 낮다면 모델을 저장 
+    """
+    if current_loss < best_loss:
+        checkpoint = {
+            "song_encoder_state": song_encoder.state_dict(),
+            "genre_encoder_state": genre_encoder.state_dict(),
+            "artist_vocab": {
+                "artist2id": song_encoder.artist_encoder.artist2id,
+                "id2artist": song_encoder.artist_encoder.id2artist
+            },
+            "scaler": scaler
+        }
+        torch.save(checkpoint, save_path)
+        print(f"✅ Best model saved to {save_path}")
+        return current_loss  # 새로운 best loss 반환
+    return best_loss
