@@ -1,7 +1,7 @@
 import torch
 from config import CONFIG
-from code.dataloader import Loader
-from code.model import LightGCN
+from lightgcn.dataloader import Loader
+from lightgcn.model import LightGCN
 import numpy as np
 
 
@@ -11,7 +11,7 @@ def get_model():
     """
     dataset = Loader(path="./data")
     model = LightGCN(CONFIG, dataset)
-    checkpoint = torch.load('./code/checkpoints/best_model.pth', map_location=torch.device('cuda'))
+    checkpoint = torch.load('./lightgcn/checkpoints/best_model.pth', map_location=torch.device('cuda'))
     model.load_state_dict(checkpoint)
 
     # Item embeddings만 반환 (사용자 임베딩은 동적으로 계산)

@@ -1,3 +1,5 @@
+import sys
+import os
 from fastapi import FastAPI, HTTPException
 from model import get_model, inference, compute_ratings
 from schemas import RecommendationRequest, RecommendationResponse, OnboardingData, OnboardingResponse, OnboardingSelectionData
@@ -6,6 +8,7 @@ from db_utils import get_postgresql_connection, calculate_cosine_similarity
 import asyncio
 import json
 
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 app = FastAPI()
 model, item_embs = None, None
