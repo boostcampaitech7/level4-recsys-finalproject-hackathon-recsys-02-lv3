@@ -20,8 +20,10 @@ def load_data_model(func):
 @load_data_model
 def inference(dataset, model, uid, top_k=100) -> list:
     '''
-    user_embs, item_embs: 기학습된 유저와 아이템 임베딩(emb_dim:64)
-    uid: 유저 아이디 (int)
+    Parameters:
+        uid: top-k개의 추천 리스트를 fetch할 user id
+    Return:
+        top-k개의 추천 리스트
     '''
     user_embs, item_embs = model.embedding_user.weight, model.embedding_item.weight
     print(f"graph shape is users: {user_embs.shape}, items: {item_embs.shape}")
