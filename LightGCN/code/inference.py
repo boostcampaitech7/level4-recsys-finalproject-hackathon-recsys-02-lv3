@@ -1,48 +1,48 @@
+import os
+from omegaconf import OmegaConf
 import torch
-import argparse
-import world
 from dataloader import Loader
 from model import LightGCN
 
-def inference(rating, uid, top_k=10000) -> list:
+from functools import wraps
+
+def load_data_model(func):
+    @wraps(func) 
+    def wrapper(config, root_path, *args, **kwargs):
+        dataset = Loader(config=config, path=os.path.join(root_path, config.path.DATA))
+        model = LightGCN(config, dataset)
+        checkpoint = torch.load(os.path.join(root_path, config.path.FILE, 'best_model.pth'), map_location=torch.device('cuda'))
+        model.load_state_dict(checkpoint)
+        return func(dataset, model, *args, **kwargs)
+
+    return wrapper
+
+@load_data_model
+def inference(dataset, model, uid, top_k=100) -> list:
     '''
     user_embs, item_embs: 기학습된 유저와 아이템 임베딩(emb_dim:64)
     uid: 유저 아이디 (int)
     '''
-    # 이미 본 아이템 제외하는 로직 필요
+    user_embs, item_embs = model.embedding_user.weight, model.embedding_item.weight
+    print(f"graph shape is users: {user_embs.shape}, items: {item_embs.shape}")
+    ratings = torch.matmul(user_embs, item_embs.T)
+
     _, indices = torch.topk(ratings[uid], top_k)
 
     return indices
 
-if __name__=='__main__':
-    ### config ###
-    config = {}
-    all_dataset = ['lastfm', 'gowalla', 'yelp2018', 'amazon-book', 'spotify']
-    all_models  = ['mf', 'lgn']
-    # config['batch_size'] = 4096
-    config['bpr_batch_size'] = 2048
-    config['latent_dim_rec'] = 64
-    config['lightGCN_n_layers']= 3
-    config['dropout'] = 0.001
-    config['keep_prob']  = 0.6
-    config['A_n_fold'] = 100
-    config['test_u_batch_size'] = 1000
-    config['multicore'] = 0
-    config['lr'] = 0.001
-    config['decay'] = 1e-4
-    config['pretrain'] = 0
-    config['A_split'] = False
-    config['bigdata'] = False
-    config['shuffle'] = 'shuffle'
+def get_item_node(model, iid) -> torch.embedding:
+    item_nodes = model.embedding_item.weight
+    return item_nodes.detach()[iid]
 
-    dataset = Loader(path=world.DATA_PATH)
-    model = LightGCN(config, dataset)
-    checkpoint = torch.load(world.FILE_PATH+"/best_model.pth", map_location=torch.device('cuda'))
-    model.load_state_dict(checkpoint)
+def get_all_user_node(dataset, model) -> list:
+    user_nodes = model.embedding_user.weight
+    return user_nodes
+
+if __name__=='__main__':
+    config = OmegaConf.load('config.yaml')
+    print(f"config: {OmegaConf.to_yaml(config)}")
+    ROOT_PATH = os.path.dirname(os.path.dirname(__file__))
     
-    user_embs, item_embs = model.embedding_user.weight, model.embedding_item.weight
-    print(user_embs.shape, item_embs.shape)
-    ratings = torch.matmul(user_embs, item_embs.T)
-    
-    for uid in range(len(user_embs)):
-        print(inference(ratings, uid))
+    for uid in range(config.num_users):
+        print(inference(uid))
