@@ -17,6 +17,7 @@ def load_data_model(func):
 
     return wrapper
 
+
 @load_data_model
 def inference(dataset, model, uid, top_k=100) -> list:
     '''
@@ -33,13 +34,16 @@ def inference(dataset, model, uid, top_k=100) -> list:
 
     return indices
 
+
 def get_item_node(model, iid) -> torch.embedding:
     item_nodes = model.embedding_item.weight
     return item_nodes.detach()[iid]
 
+
 def get_all_user_node(dataset, model) -> list:
     user_nodes = model.embedding_user.weight
     return user_nodes
+
 
 if __name__=='__main__':
     config = OmegaConf.load('config.yaml')
