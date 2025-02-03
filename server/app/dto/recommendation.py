@@ -4,7 +4,7 @@ from app.dto.playlist import Artist
 
 class OnboardingRequest(BaseModel):
     user_id: int
-    tags: list[str]
+    tags: list[int]
 
 class PlaylistRecommendation(BaseModel):
     user_id: int

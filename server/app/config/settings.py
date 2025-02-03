@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     UPSTAGE_API_KEY: str
     LASTFM_API_KEY: str
     LASTFM_API_URL: str
+    REDIS_HOST: str
+    REDIS_PORT: int
+    REDIS_PASSWORD: str
 
     class Config:
         env_file = "app/config/.env"

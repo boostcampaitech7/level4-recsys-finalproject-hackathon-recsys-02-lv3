@@ -1,5 +1,7 @@
 import httpx
 import re
+import redis
+import json
 from fastapi import APIRouter, HTTPException, Query, Depends, File, UploadFile, Form
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -23,55 +25,50 @@ logger = logging.getLogger("uvicorn")
 router = APIRouter()
 setting = Settings()
 spotify_service = SpotifyApiService()
-
-@router.post("/onboarding")
-async def get_onboarding(onboadingRequest: OnboardingRequest):
+r = redis.Redis(host=setting.REDIS_HOST, port=setting.REDIS_PORT, password=setting.REDIS_PASSWORD, decode_responses=True)
+        
+@router.post("/onboarding", response_model=list[Onboarding])
+async def get_onboarding_dummy_data(onboadingRequest: OnboardingRequest, db: Session = Depends(get_db)):
+    find_user = db.query(User).filter(User.user_id == onboadingRequest.user_id).first()
+    if not find_user:
+        raise HTTPException(status_code=404, detail="cannot find user")
+    items1 = []
+    items2 = []
+    
     async with httpx.AsyncClient() as client:
         response = await client.post(
             f"{setting.MODEL_API_URL}/onboarding",
             json=onboadingRequest.dict()
         )
         if response.status_code == 200:
-            return JSONResponse(status_code=200, content={"message":"success"})
+            pairs = response.json()["items"]
+            items1_id = [pair["item1"] for pair in pairs]
+            items2_id = [pair["item2"] for pair in pairs]
+            def fetch_tracks_from_redis(track_ids, redis_client):
+                track_data_list = redis_client.mget([str(track_id) for track_id in track_ids])
+                items = []
+
+                for track_data in track_data_list:
+                    if not track_data:
+                        raise HTTPException(status_code=404, detail="Track not found in Redis")
+                    
+                    track_info = json.loads(track_data)
+                    items.append(Onboarding(
+                        track_id=track_info.get("track_id", 0),
+                        track_name=track_info.get("track_name", ""),
+                        track_img_url=track_info.get("track_img_url", ""),
+                        artists=[Artist(artist_name=artist) for artist in track_info.get("artist", "")], 
+                        tags=[track_info.get("tag", "")]
+                    ).dict())
+
+                return items
+
+            # items1, items2 처리
+            items1 = fetch_tracks_from_redis(items1_id, r)
+            items2 = fetch_tracks_from_redis(items2_id, r)
+            return JSONResponse(status_code=200, content={"items1":items1, "items2":items2})
         else:
             raise HTTPException(status_code=response.status_code, detail=response.json())
-        
-@router.post("/test/onboarding", response_model=list[Onboarding])
-async def get_onboarding_dummy_data(onboadingRequest: OnboardingRequest, db: Session = Depends(get_db)):
-    find_user = db.query(User).filter(User.user_id == onboadingRequest.user_id).first()
-    if not find_user:
-        raise HTTPException(status_code=404, detail="cannot find user")
-    pairs = [TrackIdPair(item1=i, item2=i+1) for i in range(1, 21, 2)]
-    items1_id = [pair.item1 for pair in pairs]
-    items2_id = [pair.item2 for pair in pairs]
-    query = text("""
-        SELECT 
-            t.track_id,
-            t.track AS track_name, 
-            STRING_AGG(DISTINCT a.artist, ' & ' ORDER BY a.artist) AS artist_names,
-            t.img_url
-        FROM track t
-        JOIN track_artist ta ON ta.track_id = t.track_id
-        JOIN artist a ON ta.artist_id = a.artist_id
-        WHERE t.track_id = ANY(:track_id)
-        GROUP BY t.track, t.img_url, t.track_id
-        ORDER BY ARRAY_POSITION(:track_id, t.track_id);
-    """)
-    results1 = db.execute(query, {"track_id": items1_id}).fetchall()
-    results2 = db.execute(query, {"track_id": items2_id}).fetchall()
-    items1 = [Onboarding(
-        track_id=result[0],
-        track_name=result[1],
-        artists=[Artist(artist_name=result[2]).dict()],
-        track_img_url=result[3],
-    ).dict() for result in results1]
-    items2 = [Onboarding(
-        track_id=result[0],
-        track_name=result[1],
-        artists=[Artist(artist_name=result[2]).dict()],
-        track_img_url=result[3],
-    ).dict() for result in results2]
-    return JSONResponse(status_code=200, content={"items1":items1, "items2":items2})
         
 @router.get("/playlists/{playlist_id}/tracks", response_model=list[Recommendation])
 async def get_recommendation_by_playlists(playlist_id: str, user_id: int = Query(...), playlist_name: Optional[str] = None, \
