@@ -2,6 +2,7 @@ import httpx
 import re
 import redis
 import json
+import asyncio
 from fastapi import APIRouter, HTTPException, Query, Depends, File, UploadFile, Form
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -28,7 +29,7 @@ spotify_service = SpotifyApiService()
 r = redis.Redis(host=setting.REDIS_HOST, port=setting.REDIS_PORT, password=setting.REDIS_PASSWORD, decode_responses=True)
         
 @router.post("/onboarding", response_model=list[Onboarding])
-async def get_onboarding_dummy_data(onboadingRequest: OnboardingRequest, db: Session = Depends(get_db)):
+async def get_onboarding(onboadingRequest: OnboardingRequest, db: Session = Depends(get_db)):
     find_user = db.query(User).filter(User.user_id == onboadingRequest.user_id).first()
     if not find_user:
         raise HTTPException(status_code=404, detail="cannot find user")
@@ -71,12 +72,17 @@ async def get_onboarding_dummy_data(onboadingRequest: OnboardingRequest, db: Ses
             raise HTTPException(status_code=response.status_code, detail=response.json())
         
 @router.get("/playlists/{playlist_id}/tracks", response_model=list[Recommendation])
-async def get_recommendation_by_playlists(playlist_id: str, user_id: int = Query(...), playlist_name: Optional[str] = None, \
-                             db: Session = Depends(get_db)):
+async def get_metadata_based_playlist(
+    playlist_id: str,
+    user_id: int = Query(...),
+    playlist_name: Optional[str] = " ",
+    db: Session = Depends(get_db)
+):
     find_user = db.query(User).filter(User.user_id == user_id).first()
     if not find_user:
         raise HTTPException(status_code=404, detail="cannot find user")
     
+    # Spotify API 요청
     response = await spotify_service._make_request(
         method='GET',
         url=f"{setting.SPOTIFY_API_URL}/playlists/{playlist_id}/tracks",
@@ -84,51 +90,77 @@ async def get_recommendation_by_playlists(playlist_id: str, user_id: int = Query
         db=db
     )
     items = response["items"]
-    tracks = []
-    for item in items:
-        query = text("""
-            SELECT t.track_id
-            FROM track t
-            JOIN track_artist ta ON ta.track_id = t.track_id
-            JOIN artist a ON ta.artist_id = a.artist_id
-            WHERE LOWER(REPLACE(a.artist, ' ', '')) = LOWER(REPLACE(:artist_name, ' ', ''))
-            AND LOWER(REPLACE(t.track, ' ', '')) = LOWER(REPLACE(:track_name, ' ', ''));
-        """)
-        artist_name = item["track"]["artists"][0]["name"].split("&")[0]
-        result = db.execute(query, {"artist_name": artist_name, "track_name": item["track"]["name"]}).fetchone()
-        if result:
-            tracks.append(result[0])
-    logger.info(tracks)
+
+    # Track & Artist 리스트 준비
+    track_artist_list = [
+        (
+            item["track"]["name"],
+            item["track"]["artists"][0]["name"].split("&")[0]  # 첫 번째 아티스트만 사용
+        )
+        for item in items
+    ]
+
+    # 한 번의 쿼리로 모든 트랙 검색
+    query = text("""
+        SELECT t.track_id, t.track, a.artist, t.listeners
+        FROM track t
+        JOIN track_artist ta ON ta.track_id = t.track_id
+        JOIN artist a ON ta.artist_id = a.artist_id
+        WHERE a.artist IN :artist_names
+        AND t.track IN :track_names;
+    """)
+
+    track_names = [track.strip() for track, artist in track_artist_list]
+    artist_names = [artist.strip() for track, artist in track_artist_list]
+
+    db_results = db.execute(query, {"artist_names": tuple(artist_names), "track_names": tuple(track_names)}).fetchall()
+
+    # DB에서 찾은 트랙 ID 정리
+    track_dict = {}
+    for track_id, track, artist, listeners in db_results:
+        key = (track.lower().replace(" ", ""), artist.lower().replace(" ", ""))
+        if key not in track_dict or listeners > track_dict[key][1]:  
+            track_dict[key] = (track_id, listeners)  # listeners가 가장 많은 트랙 선택
+
+    exists = []
+    missing_requests = []
+    
+    for track, artist in track_artist_list:
+        key = (track.lower().replace(" ", ""), artist.lower().replace(" ", ""))
+        if key in track_dict:
+            exists.append(track_dict[key][0])
+        else:
+            missing_requests.append((artist, track))
+
+    # Last.fm API 병렬 요청
+    async def fetch_metadata(artist, track):
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{setting.LASTFM_API_URL}&api_key={setting.LASTFM_API_KEY}&artist={artist}&track={track}"
+            )
+            if response.status_code == 200:
+                track_data = response.json().get("track", {})
+                return TrackMetaData(
+                    track_name=track_data.get("name", track),
+                    artists_name=track_data.get("artist", {}).get("name", artist),
+                    playlist_name=playlist_name,
+                    genres=[tag["name"] for tag in track_data.get("toptags", {}).get("tag", [])],
+                    length=int(track_data.get("duration", 0)),
+                    listeners=int(track_data.get("listeners", 0))
+                ).dict()
+        return None
+
+    # 병렬로 API 요청 실행
+    missing_metadata = await asyncio.gather(*(fetch_metadata(artist, track) for artist, track in missing_requests))
+    missing = [meta for meta in missing_metadata if meta is not None]
 
     async with httpx.AsyncClient() as client:
         response = await client.post(
             f"{setting.MODEL_API_URL}/playlist",
-            json=PlaylistRecommendation(user_id=user_id, items=tracks).dict()
+            json=RecommendationRequest(user_id=user_id, exists=exists, missing=missing).dict()
         )
         if response.status_code == 200:
-            query = text("""
-                SELECT 
-                    t.track_id,
-                    t.track AS track_name, 
-                    STRING_AGG(DISTINCT a.artist, ' & ' ORDER BY a.artist) AS artist_names,
-                    t.img_url
-                FROM track t
-                JOIN track_artist ta ON ta.track_id = t.track_id
-                JOIN artist a ON ta.artist_id = a.artist_id
-                WHERE t.track_id = ANY(:track_id)
-                GROUP BY t.track, t.img_url, t.track_id
-                ORDER BY ARRAY_POSITION(:track_id, t.track_id);
-            """)
-            recommendations = []
-            results = db.execute(query, {"track_id": response.json()['items']}).fetchall() 
-            for result in results:
-                recommendations.append(Recommendation(
-                    track_id=result[0],
-                    track_name=result[1],
-                    artists=[Artist(artist_name=artist).dict() for artist in result[2].split(' & ')],
-                    track_img_url=result[3],
-                ).dict())
-            return JSONResponse(status_code=200, content=recommendations)
+            return JSONResponse(status_code=200, content=response.json())
         else:
             raise HTTPException(status_code=response.status_code, detail=response.json())
 
@@ -240,55 +272,6 @@ async def get_recommendation_by_image(ocrRecommendation: OCRRecommendation, db: 
             raise HTTPException(status_code=response.status_code, detail=response.json())
 
     return JSONResponse(status_code=200, content=recommendations)
-
-@router.get("/test/lastfm/{playlist_id}", response_model=RecommendationRequest)
-async def get_metadata_based_playlist(playlist_id: str, user_id: int = Query(...), playlist_name: Optional[str] = None, \
-                             db: Session = Depends(get_db)):
-    find_user = db.query(User).filter(User.user_id == user_id).first()
-    if not find_user:
-        raise HTTPException(status_code=404, detail="cannot find user")
-    
-    response = await spotify_service._make_request(
-        method='GET',
-        url=f"{setting.SPOTIFY_API_URL}/playlists/{playlist_id}/tracks",
-        user=find_user,
-        db=db
-    )
-    items = response["items"]
-    exists = []
-    missing = []
-    for item in items:
-        query = text("""
-            SELECT t.track_id
-            FROM track t
-            JOIN track_artist ta ON ta.track_id = t.track_id
-            JOIN artist a ON ta.artist_id = a.artist_id
-            WHERE LOWER(REPLACE(a.artist, ' ', '')) = LOWER(REPLACE(:artist_name, ' ', ''))
-            AND LOWER(REPLACE(t.track, ' ', '')) = LOWER(REPLACE(:track_name, ' ', ''));
-        """)
-        artist_name = item["track"]["artists"][0]["name"].split("&")[0]
-        track_name = item["track"]["name"]
-        result = db.execute(query, {"artist_name": artist_name, "track_name": track_name}).fetchone()
-        if result:
-            exists.append(result[0])
-        else:
-            async with httpx.AsyncClient() as client:
-                meta_data = await client.get(
-                    f"{setting.LASTFM_API_URL}&api_key={setting.LASTFM_API_KEY}"
-                    f"&artist={artist_name}&track={track_name}"
-                )
-                track = meta_data.json()["track"]
-                logger.info(track["toptags"])
-            missing.append(TrackMetaData(
-                track_name=track["name"],
-                artist_name=track["artist"]["name"],
-                playlist_name=playlist_name,
-                genres=[tag["name"] for tag in track["toptags"]["tag"]],
-                length=int(track["duration"]),
-                listeners=int(track["listeners"])
-            ).dict())
-
-    return JSONResponse(status_code=200, content=RecommendationRequest(user_id=user_id, exists=exists, missing=missing).dict())
 
 @router.post("/test/lastfm/image", response_model=RecommendationRequest)
 async def get_metadata_based_image(ocrRecommendation: OCRRecommendation, db: Session = Depends(get_db)):

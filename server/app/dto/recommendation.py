@@ -12,8 +12,8 @@ class PlaylistRecommendation(BaseModel):
 
 class TrackMetaData(BaseModel):
     track_name: str
-    artist_name: str
-    playlist_name: Optional[str] = "내 플레이리스트"
+    artists_name: str
+    playlist_name: Optional[str] = " "
     genres: list[str]
     length: int
     listeners: int
@@ -40,7 +40,7 @@ class Onboarding(BaseModel):
     track_name: str
     track_img_url: Optional[str] = None
     artists: list[Artist]
-    tags: list[str] = ["신나는"]
+    tags: list[str] = ["태그"]
 
 class Recommendation(BaseModel):
     track_id: int
