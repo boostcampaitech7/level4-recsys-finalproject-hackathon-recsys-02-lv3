@@ -87,8 +87,8 @@ def train_model(song_encoder, genre_encoder, data_songs: List[Dict],
     트랙 및 장르 인코더 모델을 학습
 
     Args:
-        song_encoder (torch.nn.Module): 학습할 트랙 인코더 모델
-        genre_encoder (torch.nn.Module): 학습할 장르 인코더 모델
+        song_encoder (torch.nn.Module): 학습할 트랙 인코더
+        genre_encoder (torch.nn.Module): 학습할 장르 인코더
         data_songs (List[Dict]): 트랙 메타데이터 리스트
         scaler (MinMaxScaler): 데이터 정규화를 위한 스케일러
         config (OmegaConf): 학습 환경 설정
@@ -116,35 +116,27 @@ def train_model(song_encoder, genre_encoder, data_songs: List[Dict],
     early_stopping = EarlyStopping(config)
 
     best_loss = float("inf")  # Initialize best loss
-    ###
     num_batches = len(dataloader)
 
-    # 에포크 진행바
     epoch_pbar = tqdm(range(config.training.num_epochs), desc="Training", position=0)
     
-    # 러닝 메트릭스 저장
     metrics_history = {
         'loss': [],
         'lr': []
     }
-    ###
 
-    for epoch in epoch_pbar: ###
+    for epoch in epoch_pbar: 
         song_encoder.train()
         genre_encoder.train()
         total_loss = 0.0
 
-        ###
-        # 배치 진행바
         batch_pbar = tqdm(dataloader, desc=f"Epoch {epoch+1}", 
                          leave=False, position=1, 
                          total=num_batches)
         
-        # 배치별 손실값 저장
         batch_losses = [] # Store batch loss values
-        ###
 
-        for batch in batch_pbar:###
+        for batch in batch_pbar:
             artists = batch["artist"]
             tracks = batch["track"]
             playlists = batch["playlist"]
@@ -168,39 +160,28 @@ def train_model(song_encoder, genre_encoder, data_songs: List[Dict],
             loss.backward()
             optimizer.step()
             
-            ###
-            # total_loss += loss.item()
             current_loss = loss.item()
             total_loss += current_loss
             batch_losses.append(current_loss)
             
-            # 배치 진행바 업데이트
             batch_pbar.set_postfix({
                 'loss': f'{current_loss:.4f}',
                 'avg_loss': f'{np.mean(batch_losses):.4f}'
             })
-            ###
 
         avg_loss = total_loss / num_batches
 
-        ###
         current_lr = optimizer.param_groups[0]['lr']
         
-        # 메트릭스 저장
         metrics_history['loss'].append(avg_loss)
         metrics_history['lr'].append(current_lr)
-        ###
                 
         scheduler.step(avg_loss)
-        ###
-        # 에포크 진행바 업데이트
         epoch_pbar.set_postfix({
             'avg_loss': f'{avg_loss:.4f}',
             'lr': f'{current_lr:.6f}',
             'best_loss': f'{best_loss:.4f}'
         })
-        ###
-        # print(f"Epoch {epoch+1}: Loss = {avg_loss:.4f}")
             
         best_loss = save_best_model(
             song_encoder, genre_encoder, scaler, 
@@ -212,12 +193,9 @@ def train_model(song_encoder, genre_encoder, data_songs: List[Dict],
             break
 
     save_model(song_encoder, genre_encoder, scaler, config.training.save_path)
-    ###
-    # 학습 완료 메시지
-    print("\n✅ Training completed!")
+    print("Training completed")
     print(f"Best Loss: {best_loss:.4f}")
     print(f"Final Learning Rate: {current_lr:.6f}")
-    ###
 
 
 def save_model(song_encoder, genre_encoder, scaler, save_path="song_genre_model.pt"):
