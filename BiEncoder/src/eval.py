@@ -6,29 +6,6 @@ from omegaconf import OmegaConf
 from train import custom_collate_fn, SongDataset
 
 
-# class SongDataset(Dataset):
-#     '''
-#     트랙 메타 데이터를 처리하는 PyTorch Dataset 클래스
-
-#     '''
-#     def __init__(self, data_songs):
-#         self.data = data_songs
-
-#     def __len__(self):
-#         # Number of samples in the dataset
-#         return len(self.data)
-
-#     def __getitem__(self, idx):
-#         # Retrieves a single sample from the dataset.
-#         return {
-#             "artist": self.data[idx]["artist"],
-#             "track": self.data[idx]["track"],
-#             "playlist": self.data[idx]["playlist"],
-#             "listeners": self.data[idx]["listeners"],
-#             "length": self.data[idx]["length"],
-#             "genres": self.data[idx]["genres"]
-#         }
-
 def evaluate_model(song_encoder, genre_encoder, data_songs: List[Dict], config) -> float:
     '''
     SongEncoder와 GenreEncoder의 성능을 평가
