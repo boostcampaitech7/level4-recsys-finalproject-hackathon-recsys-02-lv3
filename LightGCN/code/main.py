@@ -1,70 +1,67 @@
+import world
 import utils
+from world import cprint
 import torch
 import numpy as np
 from tensorboardX import SummaryWriter
 import time
-from omegaconf import OmegaConf
-import os
 import Procedure
-from model import LightGCN
-from batch_dataloader import Loader
+from os.path import join
+# ==============================
+utils.set_seed(world.seed)
+print(">>SEED:", world.seed)
+# ==============================
+import register
 from utils import EarlyStopping
 
+Recmodel = register.MODELS[world.model_name](world.config, register.DATA)
+Recmodel = Recmodel.to(world.device)
+bpr = utils.BPRLoss(Recmodel, world.config)
 
-config = OmegaConf.load('config.yaml')
-print(OmegaConf.to_yaml(config))
-
-ROOT_PATH = os.path.dirname(os.path.dirname(__file__))
-weight_file = utils.getFileName(ROOT_PATH, config)
+weight_file = utils.getFileName()
 print(f"load and save to {weight_file}")
-
-dataloader = Loader(config=config, path=os.path.join(ROOT_PATH,config.path.DATA))
-model = LightGCN(config, dataloader)
-model = model.to(torch.device(config.device))
-bpr = utils.BPRLoss(model, config)
-
-if config.finetune:
+if world.LOAD:
     try:
-        model.load_state_dict(torch.load(weight_file,map_location=torch.device('cpu')))
-        print(f"loaded model weights from {weight_file}")
+        Recmodel.load_state_dict(torch.load(weight_file,map_location=torch.device('cpu')))
+        world.cprint(f"loaded model weights from {weight_file}")
     except FileNotFoundError:
         print(f"{weight_file} not exists, start from beginning")
+Neg_k = 1
 
-es = EarlyStopping(model=model,
+es = EarlyStopping(model=Recmodel,
                    patience=10, 
                    delta=0, 
                    mode='min', 
-                   verbose=True,
-                   path=os.path.join(ROOT_PATH, config.path.FILE, 'best_model.pth')
+                   verbose=True
                   )
 
 # init tensorboard
-if config.tensorboard:
+if world.tensorboard:
     w : SummaryWriter = SummaryWriter(
-                                    os.path.join(ROOT_PATH, config.path.BOARD, time.strftime("%m-%d-%Hh%Mm%Ss-"))
+                                    join(world.BOARD_PATH, time.strftime("%m-%d-%Hh%Mm%Ss-") + "-" + world.comment)
                                     )
 else:
     w = None
-    print("not enable tensorflowboard")
+    world.cprint("not enable tensorflowboard")
 
 try:
     stopping_step = 0
     cur_best_pre_0 = 0
     should_stop = False
-    for epoch in range(config.epochs):
+    for epoch in range(world.TRAIN_epochs):
         start = time.time()
-        if config.test and epoch %10 == 0:
-            print(f"test at epoch {epoch}")
-            Procedure.Test(config, dataloader, model, epoch, w)
-        output_information, avr_loss = Procedure.BPR_train_original(config, dataloader, model, bpr, epoch, 1, w)
+        if epoch %10 == 0:
+            cprint("[TEST]")
+            Procedure.Test(register.DATA, Recmodel, epoch, w, world.config['multicore'])
+        output_information, avr_loss = Procedure.BPR_train_original(register.DATA, Recmodel, bpr, epoch, neg_k=Neg_k,w=w)
         if epoch % 5 == 0:
-            print(f'EPOCH[{epoch+1}/{config.epochs}] {output_information}')
-        torch.save(model.state_dict(), weight_file)
+            print(f'EPOCH[{epoch+1}/{world.TRAIN_epochs}] {output_information}')
+        torch.save(Recmodel.state_dict(), weight_file)
         # early stopping -> 10 epoch 동안 loss 값이 줄어들지 않을 경우 학습 종료
         es(avr_loss)
         if es.early_stop:
             print(f'Early Stopping at {epoch+1}, avr_loss:{avr_loss}')
             break
 finally:
-    if config.tensorboard:
+    if world.tensorboard:
         w.close()

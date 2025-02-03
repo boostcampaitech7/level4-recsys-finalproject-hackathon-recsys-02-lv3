@@ -7,13 +7,17 @@ Xiangnan He et al. LightGCN: Simplifying and Powering Graph Convolution Network 
 Design Dataset here
 Every dataset's index has to start at 0
 """
+import os
 from os.path import join
+import sys
 import torch
 import numpy as np
 import pandas as pd
 from torch.utils.data import Dataset, DataLoader
 from scipy.sparse import csr_matrix
 import scipy.sparse as sp
+import world
+from world import cprint
 from time import time
 
 class BasicDataset(Dataset):
@@ -70,14 +74,13 @@ class Loader(BasicDataset):
     gowalla dataset
     """
 
-    def __init__(self,config, path):
+    def __init__(self,config = world.config,path="../data/spotify"):
         # train or test
-        self.config = config
-        self.split = config.A_split
-        self.folds = config.A_n_fold
+        cprint(f'loading [{path}]')
+        self.split = config['A_split']
+        self.folds = config['A_n_fold']
         self.mode_dict = {'train': 0, "test": 1}
         self.mode = self.mode_dict['train']
-        self.device = torch.device(config.device)
         self.n_user = 0
         self.m_item = 0
         train_file = path + '/train.txt'
@@ -87,7 +90,7 @@ class Loader(BasicDataset):
         testUniqueUsers, testItem, testUser = [], [], []
         self.traindataSize = 0
         self.testDataSize = 0
-        
+
         with open(train_file) as f:
             for l in f.readlines():
                 if len(l) > 0:
@@ -103,7 +106,7 @@ class Loader(BasicDataset):
         self.trainUniqueUsers = np.array(trainUniqueUsers)
         self.trainUser = np.array(trainUser)
         self.trainItem = np.array(trainItem)
-        # print(self.n_user, len(self.trainUser))
+
         with open(test_file) as f:
             for l in f.readlines():
                 if len(l) > 0:
@@ -125,7 +128,7 @@ class Loader(BasicDataset):
         self.Graph = None
         print(f"{self.trainDataSize} interactions for training")
         print(f"{self.testDataSize} interactions for testing")
-        print(f"Data Sparsity : {(self.trainDataSize + self.testDataSize) / self.n_users / self.m_items}")
+        print(f"{world.dataset} Sparsity : {(self.trainDataSize + self.testDataSize) / self.n_users / self.m_items}")
 
         # (users,items), bipartite graph
         self.UserItemNet = csr_matrix((np.ones(len(self.trainUser)), (self.trainUser, self.trainItem)),
@@ -137,7 +140,7 @@ class Loader(BasicDataset):
         # pre-calculate
         self._allPos = self.getUserPosItems(list(range(self.n_user)))
         self.__testDict = self.__build_test()
-        print(f"Data is ready to go")
+        print(f"{world.dataset} is ready to go")
 
     @property
     def n_users(self):
@@ -168,7 +171,7 @@ class Loader(BasicDataset):
                 end = self.n_users + self.m_items
             else:
                 end = (i_fold + 1) * fold_len
-            A_fold.append(self._convert_sp_mat_to_sp_tensor(A[start:end]).coalesce().to(self.device))
+            A_fold.append(self._convert_sp_mat_to_sp_tensor(A[start:end]).coalesce().to(world.device))
         return A_fold
 
     def _convert_sp_mat_to_sp_tensor(self, X):
@@ -214,7 +217,7 @@ class Loader(BasicDataset):
                 print("done split matrix")
             else:
                 self.Graph = self._convert_sp_mat_to_sp_tensor(norm_adj)
-                self.Graph = self.Graph.coalesce().to(self.device)
+                self.Graph = self.Graph.coalesce().to(world.device)
                 print("don't split the matrix")
         return self.Graph
 
