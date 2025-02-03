@@ -1,6 +1,7 @@
 # 1. MongoDB 연결해 uid, pos, neg fetch
 # 2. KNN Logic ~.~
 # 3. fetch했던 uid / user_emb 반환
+import argparse
 from omegaconf import OmegaConf
 from pymongo import MongoClient
 import pandas as pd
@@ -10,10 +11,8 @@ import torch
 
 from inference import load_data_model, get_item_node, get_all_user_node
 
-def get_inter_data():
-    username = "jaypark"
-    password = 'IOWABB9HnR0ew7Bf'  # 특수문자가 있는 경우 인코딩
-    uri = f"mongodb+srv://{username}:{password}@cluster0.octqq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+def get_inter_data(id, pw):
+    uri = f"mongodb+srv://{id}:{pw}@cluster0.octqq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
     client = MongoClient(uri)
     
     interaction = client['spotify']['interaction']
@@ -26,7 +25,7 @@ def get_inter_data():
     }]
 
     grouped_results = list(interaction.aggregate(pipeline))
-    gcn_id = pd.read_csv(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'gcn_track_id.csv'))
+    gcn_id = pd.read_csv(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sources/gcn_track_id.csv'))
     batch = []
 
     for group in grouped_results:
@@ -53,7 +52,12 @@ def generate_temporary_user(dataset, model, batch_data, alpha=0.2) -> list:
     return batch_data
 
 if __name__ == '__main__':
-    batch_data = get_inter_data()
+    parser = argparse.ArgumentParser(description='ID와 PW를 입력받는 예제')
+    parser.add_argument('--id', type=str, required=True)
+    parser.add_argument('--pw', type=str, required=True)
+    args = parser.parse_args()
+
+    batch_data = get_inter_data(args.id, args.pw)
     config = OmegaConf.load('config.yaml')
     ROOT_PATH = os.path.dirname(os.path.dirname(__file__))
 
