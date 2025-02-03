@@ -77,12 +77,12 @@ def fetch_track_embeddings_from_db(track_ids: List[int], config) -> Dict[int, to
         register_vector(conn)
         cur = conn.cursor()
 
-        query = """
+        sql_query = """
         SELECT track_id, track_emb
         FROM track_meta_embedding
         WHERE track_id = ANY(%s);
         """
-        cur.execute(query, (track_ids,))
+        cur.execute(sql_query, (track_ids,))
         results = cur.fetchall()
 
         for row in results:
@@ -114,12 +114,12 @@ def recommend_songs(response, candidates_track_ids, config_path, model_path):
     config = OmegaConf.load(config_path)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # Load trained song encoder and genre encoder
-    song_encoder, genre_encoder, scaler, data_songs = load_model(config_path, model_path)
+    # Load trained song encoder and query encoder
+    song_encoder, query_encoder, scaler, data_songs = load_model(config_path, model_path)
     song_encoder.to(device)
-    genre_encoder.to(device)
+    query_encoder.to(device)
     song_encoder.eval()
-    genre_encoder.eval()
+    query_encoder.eval()
 
     # Convert genre list to a single string if necessary
     for i in range(len(response['missing'])):
@@ -188,7 +188,7 @@ def recommend_songs(response, candidates_track_ids, config_path, model_path):
 
 if __name__ == "__main__":
     config_path = "../config.yaml"
-    model_path = "song_genre_model.pt"
+    model_path = "song_query_model.pt"
     
     response_example = {
         "user_id": "user_123",

@@ -114,11 +114,11 @@ def main():
     '''
     # Basic Setting
     config_path = "../config.yaml"
-    model_path = "song_genre_model.pt"
+    model_path = "song_query_model.pt"
     config = OmegaConf.load(config_path)
 
     # Load model and dataset
-    song_encoder, genre_encoder, scaler, data_songs = load_model(config_path, model_path)
+    song_encoder, query_encoder, scaler, data_songs = load_model(config_path, model_path)
 
     # Generate and save embeddings with progress tracking
     generate_and_save_embeddings(song_encoder, data_songs, config)

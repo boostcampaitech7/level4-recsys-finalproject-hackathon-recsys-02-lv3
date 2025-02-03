@@ -6,14 +6,14 @@ from omegaconf import OmegaConf
 from train import custom_collate_fn, SongDataset
 
 
-def evaluate_model(song_encoder, genre_encoder, data_songs: List[Dict], config) -> float:
+def evaluate_model(song_encoder, query_encoder, data_songs: List[Dict], config) -> float:
     '''
-    SongEncoder와 GenreEncoder의 성능을 평가
-    SongEncoder의 임베딩과 해당 GenreEncoder의 임베딩 간의 코사인 유사도를 계산
+    SongEncoder와 QueryEncoder 성능을 평가
+    SongEncoder의 임베딩과 해당 QueryEncoder의 임베딩 간의 코사인 유사도를 계산
 
     Args:
         song_encoder (torch.nn.Module): 트랙 임베딩 생성 모델
-        genre_encoder (torch.nn.Module): 장르 임베딩 생성 모델
+        query_encoder (torch.nn.Module): 쿼리 임베딩 생성 모델
         data_songs (List[Dict]): 평가에 사용할 곡 메타데이터 리스트
         config (OmegaConf): 학습 및 평가 환경 설정
 
@@ -23,9 +23,9 @@ def evaluate_model(song_encoder, genre_encoder, data_songs: List[Dict], config) 
     '''
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     song_encoder.to(device)
-    genre_encoder.to(device)
+    query_encoder.to(device)
     song_encoder.eval()
-    genre_encoder.eval()
+    query_encoder.eval()
 
     dataset = SongDataset(data_songs)
     dataloader = DataLoader(
@@ -53,11 +53,11 @@ def evaluate_model(song_encoder, genre_encoder, data_songs: List[Dict], config) 
                 listeners, lengths, genres
             )
 
-            # Compute genre embeddings
-            pos_embs = genre_encoder(genres)
+            # Compute embeddings
+            pos_embs = query_encoder(genres)
 
             # Negative sampling
-            neg_embs = genre_encoder(genres[1:] + [genres[0]])
+            neg_embs = query_encoder(genres[1:] + [genres[0]])
 
             # Cosine similarity
             pos_sim = F.cosine_similarity(anchor_embs, pos_embs)

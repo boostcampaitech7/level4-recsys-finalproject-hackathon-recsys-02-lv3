@@ -127,7 +127,7 @@ class SongEncoder(nn.Module):
         return F.normalize(final_emb, p=2, dim=1)
 
 
-class GenreEncoder(nn.Module):
+class QueryEncoder(nn.Module):
     '''
     장르 정보를 기반으로 정규화된 임베딩을 생성하는 인코더 
 
@@ -139,16 +139,16 @@ class GenreEncoder(nn.Module):
         super().__init__()
         self.tokenizer = AutoTokenizer.from_pretrained(config.model.bert_pretrained)
         self.bert = AutoModel.from_pretrained(config.model.bert_pretrained)
-        self.linear = nn.Linear(768, config.model.genre_embed_dim)
+        self.linear = nn.Linear(768, config.model.query_embed_dim)
 
         for param in self.bert.parameters():
             param.requires_grad = False
 
-    def forward(self, genres_batch):
-        if isinstance(genres_batch[0], list):
-            texts = [" ".join(genres) for genres in genres_batch]
+    def forward(self, query_batch):
+        if isinstance(query_batch[0], list):
+            texts = [" ".join(query) for query in query_batch]
         else:
-            texts = [str(genres) for genres in genres_batch]
+            texts = [str(query) for query in query_batch]
 
         inputs = self.tokenizer(texts, return_tensors="pt", truncation=True, padding=True)
         inputs = {k: v.to(self.linear.weight.device) for k, v in inputs.items()}
@@ -183,7 +183,7 @@ class PlaylistAwareArtistEncoder(nn.Module):
         self.cache_dir.mkdir(exist_ok=True)
         
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        print(f"🚀 Using device: {self.device}")
+        print(f"Using device: {self.device}")
         
         # Generate graphh
         self.graph = self.get_or_create_graph()
@@ -214,11 +214,11 @@ class PlaylistAwareArtistEncoder(nn.Module):
         cache_file = self.cache_dir / f"graph_{cache_key}.pkl"
         
         if cache_file.exists():
-            print("🔄 Loading cached graph...")
+            print("Loading cached graph...")
             with open(cache_file, 'rb') as f:
                 return pickle.load(f)
         
-        print("🆕 Creating new graph...")
+        print("Creating new graph...")
         graph = self.create_artist_graph_advanced()
         
         with open(cache_file, 'wb') as f:
@@ -233,7 +233,7 @@ class PlaylistAwareArtistEncoder(nn.Module):
         Returns:
             networkx.Graph: 아티스트 간의 그래프
         """
-        print("🔍 Starting graph creation...")
+        print("Starting graph creation...")
         edge_weights = {}
         
         # Process playlists
@@ -264,14 +264,14 @@ class PlaylistAwareArtistEncoder(nn.Module):
                           if d['weight'] < weight_threshold]
         G.remove_edges_from(edges_to_remove)
         
-        print(f"🔍 Graph completed with {G.number_of_nodes()} nodes and {G.number_of_edges()} edges")
+        print(f"Graph completed with {G.number_of_nodes()} nodes and {G.number_of_edges()} edges")
         return G
 
     def init_embeddings_with_graph_info(self):
         '''
         그래프의 주요 아티스트를 찾아 임베딩을 초기화
         '''
-        print("📊 Initializing embeddings...")
+        print("Initializing embeddings...")
         pagerank = nx.pagerank(self.graph)
         degree_cent = nx.degree_centrality(self.graph)
         

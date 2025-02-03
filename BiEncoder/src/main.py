@@ -1,6 +1,6 @@
 from omegaconf import OmegaConf
 from preprocess import preprocess_data, load_playlist
-from models import SongEncoder, GenreEncoder
+from models import SongEncoder, QueryEncoder
 from train import train_model
 from eval import evaluate_model
 
@@ -21,19 +21,19 @@ def main():
         cluster_embeds=cluster_embeds,
         clusters_dict=clusters_dict
     )
-    genre_encoder = GenreEncoder(config)
+    query_encoder = QueryEncoder(config)
 
     # Train
     train_model(
         song_encoder, 
-        genre_encoder, 
+        query_encoder, 
         data_songs, 
         scaler=scaler, 
         config=config
     )
 
     # Evaluation
-    evaluate_model(song_encoder, genre_encoder, data_songs, config)
+    evaluate_model(song_encoder, query_encoder, data_songs, config)
 
 if __name__ == "__main__":
     main()

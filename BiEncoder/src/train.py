@@ -8,7 +8,7 @@ import torch.optim as optim
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from models import SongEncoder, GenreEncoder
+from models import SongEncoder, QueryEncoder
 from preprocess import preprocess_data, load_playlist
 from utils import cosine_triplet_margin_loss, EarlyStopping
 
@@ -81,14 +81,14 @@ def custom_collate_fn(batch):
     }
 
 
-def train_model(song_encoder, genre_encoder, data_songs: List[Dict], 
+def train_model(song_encoder, query_encoder, data_songs: List[Dict], 
                 scaler, config):
     '''
     트랙 및 장르 인코더 모델을 학습
 
     Args:
         song_encoder (torch.nn.Module): 학습할 트랙 인코더
-        genre_encoder (torch.nn.Module): 학습할 장르 인코더
+        query_encoder (torch.nn.Module): 학습할 쿼리 인코더
         data_songs (List[Dict]): 트랙 메타데이터 리스트
         scaler (MinMaxScaler): 데이터 정규화를 위한 스케일러
         config (OmegaConf): 학습 환경 설정
@@ -98,7 +98,7 @@ def train_model(song_encoder, genre_encoder, data_songs: List[Dict],
     '''
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     song_encoder.to(device)
-    genre_encoder.to(device)
+    query_encoder.to(device)
 
     dataset = SongDataset(data_songs)
     dataloader = DataLoader(
@@ -109,7 +109,7 @@ def train_model(song_encoder, genre_encoder, data_songs: List[Dict],
         collate_fn = custom_collate_fn)
 
     optimizer = optim.Adam(
-        list(song_encoder.parameters()) + list(genre_encoder.parameters()), 
+        list(song_encoder.parameters()) + list(query_encoder.parameters()), 
         lr=config.training.lr
     )
     scheduler = ReduceLROnPlateau(optimizer, 'min', patience=config.training.scheduler_patience)
@@ -127,7 +127,7 @@ def train_model(song_encoder, genre_encoder, data_songs: List[Dict],
 
     for epoch in epoch_pbar: 
         song_encoder.train()
-        genre_encoder.train()
+        query_encoder.train()
         total_loss = 0.0
 
         batch_pbar = tqdm(dataloader, desc=f"Epoch {epoch+1}", 
@@ -150,9 +150,9 @@ def train_model(song_encoder, genre_encoder, data_songs: List[Dict],
                 listeners, lengths, genres
             )
 
-            pos_embs = genre_encoder(genres)
+            pos_embs = query_encoder(genres)
 
-            neg_embs = genre_encoder(genres[1:] + [genres[0]])
+            neg_embs = query_encoder(genres[1:] + [genres[0]])
 
             loss = cosine_triplet_margin_loss(anchor_embs, pos_embs, neg_embs, config)
             
@@ -184,7 +184,7 @@ def train_model(song_encoder, genre_encoder, data_songs: List[Dict],
         })
             
         best_loss = save_best_model(
-            song_encoder, genre_encoder, scaler, 
+            song_encoder, query_encoder, scaler, 
             config.training.save_path, best_loss, avg_loss
         )
 
@@ -192,19 +192,19 @@ def train_model(song_encoder, genre_encoder, data_songs: List[Dict],
             print(f"Early stopping at epoch {epoch+1}")
             break
 
-    save_model(song_encoder, genre_encoder, scaler, config.training.save_path)
+    save_model(song_encoder, query_encoder, scaler, config.training.save_path)
     print("Training completed")
     print(f"Best Loss: {best_loss:.4f}")
     print(f"Final Learning Rate: {current_lr:.6f}")
 
 
-def save_model(song_encoder, genre_encoder, scaler, save_path="song_genre_model.pt"):
+def save_model(song_encoder, query_encoder, scaler, save_path="song_query_model.pt"):
     '''
     학습된 모델을 저장
 
     Args:
         song_encoder (torch.nn.Module): 학습된 트랙 인코더
-        genre_encoder (torch.nn.Module): 학습된 장르 인코더
+        query_encoder (torch.nn.Module): 학습된 쿼리 인코더
         scaler (MinMaxScaler): 데이터 정규화를 위한 스케일러
         save_path (str, optional): 저장할 모델 경로
 
@@ -214,7 +214,7 @@ def save_model(song_encoder, genre_encoder, scaler, save_path="song_genre_model.
 
     checkpoint = {
         "song_encoder_state": song_encoder.state_dict(),
-        "genre_encoder_state": genre_encoder.state_dict(),
+        "query_encoder_state": query_encoder.state_dict(),
         "artist_vocab": {
             "artist2id": song_encoder.artist_encoder.artist2id,
             "id2artist": song_encoder.artist_encoder.id2artist
@@ -225,7 +225,7 @@ def save_model(song_encoder, genre_encoder, scaler, save_path="song_genre_model.
     print(f"Model saved to {save_path}")
 
 
-def load_model(config_path, model_path="song_genre_model.pt"):
+def load_model(config_path, model_path="song_query_model.pt"):
     checkpoint = torch.load(model_path, map_location=torch.device('cpu'))
 
     data_songs, cluster_embeds, clusters_dict = preprocess_data(config_path, checkpoint.get("scaler"))
@@ -240,7 +240,7 @@ def load_model(config_path, model_path="song_genre_model.pt"):
         cluster_embeds=cluster_embeds,
         clusters_dict=clusters_dict
     )
-    genre_encoder = GenreEncoder(config)
+    query_encoder = QueryEncoder(config)
 
     old_embedding_size = checkpoint["song_encoder_state"]["artist_encoder.embedding.weight"].shape[0]
     if old_embedding_size != song_encoder.artist_encoder.embedding.num_embeddings:
@@ -252,7 +252,7 @@ def load_model(config_path, model_path="song_genre_model.pt"):
         song_encoder.artist_encoder.embedding = new_embedding
 
     song_encoder.load_state_dict(checkpoint["song_encoder_state"])
-    genre_encoder.load_state_dict(checkpoint["genre_encoder_state"])
+    query_encoder.load_state_dict(checkpoint["query_encoder_state"])
 
     if "artist_vocab" in checkpoint:
         song_encoder.artist_encoder.artist2id = checkpoint["artist_vocab"]["artist2id"]
@@ -260,16 +260,16 @@ def load_model(config_path, model_path="song_genre_model.pt"):
 
     scaler = checkpoint.get("scaler", None)
     print(f"Model loaded from {model_path}")
-    return song_encoder, genre_encoder, scaler, data_songs
+    return song_encoder, query_encoder, scaler, data_songs
 
 
-def save_best_model(song_encoder, genre_encoder, scaler, save_path, best_loss, current_loss):
-    """ 
+def save_best_model(song_encoder, query_encoder, scaler, save_path, best_loss, current_loss):
+    '''
     현재 Loss가 더 낮을 때 최상의 모델을 저장
 
     Args:
         song_encoder (torch.nn.Module): 학습된 트랙 인코더 모델
-        genre_encoder (torch.nn.Module): 학습된 장르 인코더 모델
+        query_encoder (torch.nn.Module): 학습된 쿼리 인코더 모델
         scaler (MinMaxScaler): 데이터 정규화를 위한 스케일러
         save_path (str): 저장할 모델 경로
         best_loss (float): 현재까지의 최소 손실 값
@@ -278,11 +278,10 @@ def save_best_model(song_encoder, genre_encoder, scaler, save_path, best_loss, c
     Returns:
         float: 갱신된 최상의 손실 값.
     '''
-    """
     if current_loss < best_loss:
         checkpoint = {
             "song_encoder_state": song_encoder.state_dict(),
-            "genre_encoder_state": genre_encoder.state_dict(),
+            "query_encoder_state": query_encoder.state_dict(),
             "artist_vocab": {
                 "artist2id": song_encoder.artist_encoder.artist2id,
                 "id2artist": song_encoder.artist_encoder.id2artist
