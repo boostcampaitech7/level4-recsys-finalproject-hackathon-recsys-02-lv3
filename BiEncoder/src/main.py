@@ -1,50 +1,43 @@
-import torch
-from preprocess import preprocess_data
-from models import SongEncoder, GenreEncoder
-from train import train_model, load_model
+from omegaconf import OmegaConf
+from preprocess import preprocess_data, load_playlist
+from models import SongEncoder, QueryEncoder
+from train import train_model
 from eval import evaluate_model
+
 
 def main():
     # Configuration
-    config_path = '/Users/mac/Documents/level4-recsys-finalproject-hackathon-recsys-02-lv3/BiEncoder/config.yaml'
-    batch_size = 32
-    num_epochs = 10
-    margin = 0.2
-    save_path = "song_genre_model.pt"
+    print(1)
+    config_path = "./config.yaml"
+    config = OmegaConf.load(config_path)
 
     # Preprocess
-    print("start preprocess")
-    data_songs, artist_list = preprocess_data(config_path)
-    print("preprocessing successfully!")
+    print(2)
+    data_songs, scaler, cluster_embeds, clusters_dict = preprocess_data(config_path, scaler=None)
+    playlist_info = load_playlist(config_path)
 
     # Model initialization
-    print("start model initialization")
+    print(3)
     song_encoder = SongEncoder(
-        artist_list=artist_list,
-        bert_pretrained="distilbert-base-uncased",
-        mha_embed_dim=64,
-        mha_heads=4,
-        final_dim=32
+        config,
+        playlist_info=playlist_info,
+        cluster_embeds=cluster_embeds,
+        clusters_dict=clusters_dict
     )
-    genre_encoder = GenreEncoder(
-        pretrained_name="distilbert-base-uncased",
-        embed_dim=32
-    )
+    query_encoder = QueryEncoder(config)
 
-    print("start train!")
-    # Train with batch processing
+    # Train
+    print(4)
     train_model(
         song_encoder, 
-        genre_encoder, 
+        query_encoder, 
         data_songs, 
-        num_epochs=num_epochs, 
-        batch_size=batch_size,
-        margin=margin, 
-        save_path=save_path
+        scaler=scaler, 
+        config=config
     )
-    print("start evaluation")
+    print(5)
     # Evaluation
-    evaluate_model(song_encoder, genre_encoder, data_songs)
+    evaluate_model(song_encoder, query_encoder, data_songs, config)
 
 if __name__ == "__main__":
     main()

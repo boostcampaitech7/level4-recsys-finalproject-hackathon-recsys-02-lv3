@@ -1,27 +1,242 @@
-database:
+database:                                    # 트랙 메타정보 데이터베이스 정보
+  # dbname: "DBNAME"
+  # user: "USER"
+  # password: "PASSWORD"
+  # host: "HOST"
+  # port: "PORT"
   dbname: "postgres"
   user: "postgres"
   password: "1234"
   host: "34.64.81.75"
   port: "5432"
 
-database_emb:
-  dbname: "embedding"
+database_emb:                                # 산출한 트랙임베딩 저장 데이터베이스 정보
+  # dbname: "DBNAME"
+  # user: "USER"
+  # password: "PASSWORD"
+  # host: "HOST"
+  # port: "PORT"
+  dbname: "embedding"  
   user: "postgres"
   password: "1234"
-  host: "34.64.81.75"
-  port: "5432"
+  host: "34.64.81.75" 
+  port: "5432" 
 
-model:
-  bert_pretrained: "distilbert-base-uncased"
-  mha_embed_dim: 64
-  mha_heads: 4
-  final_dim: 32
-  genre_embed_dim: 32
-  margin: 0.2
+model:                
+  bert_pretrained: "distilbert-base-uncased" # 텍스트 임베딩 모델 
+  mha_embed_dim: 64                          # Multi-Head Attention 임베딩 차원
+  mha_heads: 4                               # Multi-Head Attention 헤드 수
+  final_dim: 32                              # 최종 출력 차원
+  query_embed_dim: 32                        # 쿼리 임베딩 차원
+  margin: 0.2                                # 손실 함수에서 사용되는 마진 값
+  output_dim: 64                             # 최종 임베딩 출력 차원
+ 
+training:                                  
+  num_epochs: 10                             # 학습 에포크 수
+  lr: 1e-4                                   # 학습률
+  batch_size: 32                             # 배치 크기
+  scheduler_patience: 2                      # 학습률 감소 스케줄러 적용 기준
+  early_stopping_patience: 5                 # Early Stopping 허용 에포크 수
+  early_stopping_min_delta: 0.001            # Early Stopping 기준 최소 손실 감소 값
+  save_path: "song_query_model.pt"           # 모델 저장 경로
 
-training:
-  num_epochs: 3
-  learning_rate: 1e-4
-  batch_size: 16
-  save_path: "song_genre_model.pt"
+inference:                                  
+  batch_size: 512                            # 추론 배치 크기
+
+clusters:                                    # 음악 장르 클러스터링 설정
+  1:
+    [
+      "rock",
+      "indie rock",
+      "alternative rock",
+      "classic rock",
+      "hard rock",
+      "progressive rock",
+      "punk rock",
+      "blues rock",
+      "grunge",
+      "post-rock",
+    ]
+  2:
+    [
+      "electronic",
+      "dance",
+      "house",
+      "techno",
+      "dubstep",
+      "electro",
+      "trance",
+      "electronica",
+      "drum and bass",
+    ]
+  3:
+    [
+      "pop",
+      "indie pop",
+      "synthpop",
+      "pop punk",
+      "power pop",
+      "pop rock",
+      "britpop",
+      "electropop",
+      "2010s",
+    ]
+  4:
+    [
+      "hip-hop",
+      "rap",
+      "trap",
+      "underground hip-hop",
+      "gangsta rap",
+      "dirty south",
+      "hip hop",
+      "old school",
+    ]
+  5:
+    [
+      "jazz",
+      "blues",
+      "soul",
+      "funk",
+      "jazz fusion",
+      "rhythm and blues",
+      "neo-soul",
+      "vocal jazz",
+      "swing",
+      "motown",
+    ]
+  6:
+    [
+      "metal",
+      "heavy metal",
+      "thrash metal",
+      "death metal",
+      "nu metal",
+      "progressive metal",
+      "industrial",
+      "stoner rock",
+      "metalcore",
+      "glam rock",
+      "alternative metal",
+    ]
+  7:
+    [
+      "country",
+      "folk",
+      "acoustic",
+      "americana",
+      "bluegrass",
+      "alt-country",
+      "singer-songwriter",
+      "indie folk",
+      "folk rock",
+    ]
+  8:
+    [
+      "punk",
+      "emo",
+      "pop punk",
+      "ska",
+      "hardcore punk",
+      "garage rock",
+      "post-punk",
+      "screamo",
+    ]
+  9: 
+    [
+      "indie", 
+      "alternative", 
+      "new wave", 
+      "post-rock", 
+      "noise pop", 
+      "math rock"
+    ]
+  10: 
+    [
+      "lo-fi", 
+      "dream pop", 
+      "shoegaze", 
+      "psychedelic"
+   
+    ]
+  11:
+    [
+      "spanish",
+      "latin",
+      "reggaeton",
+      "flamenco",
+      "salsa",
+      "spanish rock",
+      "latin rock",
+    ]
+  12:
+    [
+      "60s",
+      "70s",
+      "80s",
+      "90s",
+      "00s",
+      "oldies",
+      "old school",
+      "rockabilly",
+      "new wave",
+    ]
+  13: 
+    [
+      "rnb", 
+      "r&b", 
+      "lush", 
+      "beautiful", 
+      "sensual", 
+      "sexy"
+    ]
+  14:
+    [
+      "instrumental",
+      "piano",
+      "classical",
+      "soundtrack",
+      "orchestral",
+      "guitar",
+      "saxophone",
+      "contemporary classical",
+      "baroque",
+    ]
+  15:
+    [
+      "chillout",
+      "downtempo",
+      "mellow",
+      "lounge",
+      "chill",
+      "ambient",
+      "trip-hop",
+      "chillwave",
+    ]
+  16: 
+    [
+      "party", 
+      "disco", 
+      "dance", 
+      "electro house", 
+      "catchy", 
+      "summer"
+    ]
+  17: 
+    [
+      "experimental", 
+      "avant-garde", 
+      "glitch", 
+      "idm"
+    ]
+  18:
+    [
+      "love",
+      "romantic",
+      "sad",
+      "melancholy",
+      "ballad",
+      "heartbreak",
+      "yearning",
+      "emotional",
+    ]
