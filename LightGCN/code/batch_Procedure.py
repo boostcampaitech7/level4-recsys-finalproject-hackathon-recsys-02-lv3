@@ -11,7 +11,14 @@ import torch
 
 from inference import load_data_model, get_item_node, get_all_user_node
 
-def get_inter_data(id, pw):
+
+def get_inter_data(id, pw)-> list:
+    '''
+    Parameters: id, pw
+        MongoDB 접근을 위한 id, pw입니다.
+    Return: list
+        gcn 모델에 존재하는 track들에 대해(모든 트랙에 해당하지 않음) 전일에 누적된 유저, pos item 상호작용 배치 데이터를 불러옵니다.
+    '''
     uri = f"mongodb+srv://{id}:{pw}@cluster0.octqq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
     client = MongoClient(uri)
     
@@ -41,6 +48,13 @@ def get_inter_data(id, pw):
 
 @load_data_model
 def generate_temporary_user(dataset, model, batch_data, alpha=0.2) -> list:
+    '''
+    배치 데이터에 존재하는 유저들의 임시 임베딩을 생성합니다.
+    Parameters:
+        alpha: 근접한 유저 임베딩과 pos item 임베딩 조합의 영향을 조절하는 가중치
+    Return:
+        batch_data: 각 유저 아이디와 유저 임시 임베딩
+    '''
     e_users = get_all_user_node(dataset, model)
     for batch_user in batch_data:
         user_emb = torch.mean(get_item_node(model, torch.tensor(batch_user['batch_pos'], dtype=torch.long)), dim=0)
