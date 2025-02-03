@@ -17,17 +17,6 @@ from model import PairWiseModel
 from sklearn.metrics import roc_auc_score
 import random
 import os
-try:
-    from cppimport import imp_from_filepath
-    from os.path import join, dirname
-    path = join(dirname(__file__), "sources/sampling.cpp")
-    sampling = imp_from_filepath(path)
-    sampling.seed(world.seed)
-    sample_ext = True
-except:
-    world.cprint("Cpp extension not loaded")
-    sample_ext = False
-
 
 class BPRLoss:
     def __init__(self,
@@ -48,18 +37,6 @@ class BPRLoss:
         self.opt.step()
 
         return loss.cpu().item()
-
-
-def UniformSample_original(dataset, neg_ratio = 1):
-    dataset : BasicDataset
-    allPos = dataset.allPos
-    start = time()
-    if sample_ext:
-        S = sampling.sample_negative(dataset.n_users, dataset.m_items,
-                                     dataset.trainDataSize, allPos, neg_ratio)
-    else:
-        S = UniformSample_original_python(dataset)
-    return S
 
 def UniformSample_original_python(dataset):
     """
@@ -188,22 +165,6 @@ class EarlyStopping:
                           f'Best: {self.best_score:.5f}' \
                           f', Current: {score:.5f}, Delta: {np.abs(self.best_score - score):.5f}')
                 
-        elif self.mode == 'max':
-            if score > (self.best_score + self.delta):
-                self.counter = 0
-                self.best_score = score
-                if self.verbose:
-                    # 모델 저장
-                    torch.save(model.state_dict(), f'best_model.pth')
-                    print(f'[EarlyStopping] (Update) Best Score: {self.best_score:.5f} & Model saved')
-            else:
-                self.counter += 1
-                if self.verbose:
-                    print(f'[EarlyStopping] (Patience) {self.counter}/{self.patience}, ' \
-                          f'Best: {self.best_score:.5f}' \
-                          f', Current: {score:.5f}, Delta: {np.abs(self.best_score - score):.5f}')
-                
-            
         if self.counter >= self.patience:
             if self.verbose:
                 print(f'[EarlyStop Triggered] Best Score: {self.best_score:.5f}')
