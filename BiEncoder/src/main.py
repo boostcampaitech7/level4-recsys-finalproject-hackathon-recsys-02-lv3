@@ -1,8 +1,8 @@
+from omegaconf import OmegaConf
 from preprocess import preprocess_data, load_playlist
 from models import SongEncoder, GenreEncoder
 from train import train_model
 from eval import evaluate_model
-from omegaconf import OmegaConf
 
 
 def main():
@@ -23,6 +23,7 @@ def main():
     )
     genre_encoder = GenreEncoder(config)
 
+    # Train
     train_model(
         song_encoder, 
         genre_encoder, 

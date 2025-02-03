@@ -3,26 +3,47 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from typing import List, Dict
 from omegaconf import OmegaConf
-from train import custom_collate_fn
+from train import custom_collate_fn, SongDataset
 
-class SongDataset(Dataset):
-    def __init__(self, data_songs):
-        self.data = data_songs
 
-    def __len__(self):
-        return len(self.data)
+# class SongDataset(Dataset):
+#     '''
+#     트랙 메타 데이터를 처리하는 PyTorch Dataset 클래스
 
-    def __getitem__(self, idx):
-        return {
-            "artist": self.data[idx]["artist"],
-            "track": self.data[idx]["track"],
-            "playlist": self.data[idx]["playlist"],
-            "listeners": self.data[idx]["listeners"],
-            "length": self.data[idx]["length"],
-            "genres": self.data[idx]["genres"]
-        }
+#     '''
+#     def __init__(self, data_songs):
+#         self.data = data_songs
+
+#     def __len__(self):
+#         # Number of samples in the dataset
+#         return len(self.data)
+
+#     def __getitem__(self, idx):
+#         # Retrieves a single sample from the dataset.
+#         return {
+#             "artist": self.data[idx]["artist"],
+#             "track": self.data[idx]["track"],
+#             "playlist": self.data[idx]["playlist"],
+#             "listeners": self.data[idx]["listeners"],
+#             "length": self.data[idx]["length"],
+#             "genres": self.data[idx]["genres"]
+#         }
 
 def evaluate_model(song_encoder, genre_encoder, data_songs: List[Dict], config) -> float:
+    '''
+    SongEncoder와 GenreEncoder의 성능을 평가
+    SongEncoder의 임베딩과 해당 GenreEncoder의 임베딩 간의 코사인 유사도를 계산
+
+    Args:
+        song_encoder (torch.nn.Module): 트랙 임베딩 생성 모델
+        genre_encoder (torch.nn.Module): 장르 임베딩 생성 모델
+        data_songs (List[Dict]): 평가에 사용할 곡 메타데이터 리스트
+        config (OmegaConf): 학습 및 평가 환경 설정
+
+    Returns:
+        float: 모델의 정확도 (올바른 임베딩 매칭 비율)
+
+    '''
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     song_encoder.to(device)
     genre_encoder.to(device)
@@ -58,7 +79,7 @@ def evaluate_model(song_encoder, genre_encoder, data_songs: List[Dict], config) 
             # Compute genre embeddings
             pos_embs = genre_encoder(genres)
 
-            # Negative sampling (circular shift)
+            # Negative sampling
             neg_embs = genre_encoder(genres[1:] + [genres[0]])
 
             # Cosine similarity

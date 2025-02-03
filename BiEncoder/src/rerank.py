@@ -1,16 +1,26 @@
-import torch
-from torch.nn.functional import normalize
 import psycopg2
+from pgvector.psycopg2 import register_vector
 import pandas as pd
 import logging
 from typing import List, Dict
 from omegaconf import OmegaConf
-
+import torch
+from torch.nn.functional import normalize
 from preprocess import handle_missing_values, scale_numeric_features, dataframe_to_dict
 from train import load_model
-from pgvector.psycopg2 import register_vector
+
 
 def generate_embeddings(song_encoder, data_songs: List[Dict]) -> torch.Tensor:
+    '''
+    주어진 트랙 데이터를 기반으로 임베딩을 생성하는 함수
+
+    Args:
+        song_encoder (torch.nn.Module): 학습된 트랙 임베딩 모델
+        data_songs (List[Dict]): 트랙 메타데이터 리스트
+
+    Returns:
+        torch.Tensor: 트랙 임베딩 텐서
+    '''
     embeddings_list = []
     device = next(song_encoder.parameters()).device
 
@@ -43,6 +53,16 @@ def generate_embeddings(song_encoder, data_songs: List[Dict]) -> torch.Tensor:
         return torch.tensor([]).to(device)
 
 def fetch_track_embeddings_from_db(track_ids: List[int], config) -> Dict[int, torch.Tensor]:
+    '''
+    데이터베이스에서 트랙 임베딩을 가져오는 함수
+
+    Args:
+        track_ids (List[int]): 가져올 트랙 ID 리스트
+        config (OmegaConf): 데이터베이스 설정을 포함한 설정
+
+    Returns:
+        Dict[int, torch.Tensor]: 트랙 ID를 키로 하고 임베딩을 값으로 가지는 딕셔너리
+    '''
     conn = None
     candidate_embeddings = {}
     try:
@@ -78,41 +98,61 @@ def fetch_track_embeddings_from_db(track_ids: List[int], config) -> Dict[int, to
     return candidate_embeddings
 
 def recommend_songs(response, candidates_track_ids, config_path, model_path):
+    '''
+    사용자 플레이리스트와 후보 트랙 간의 유사도를 기반으로 추천 곡을 반환하는 함수
+
+    Args:
+        response (Dict): 사용자 플레이리스트 데이터
+        candidates_track_ids (List[int]): 후보 트랙 ID 리스트
+        config_path (str): 설정 파일 경로
+        model_path (str): 모델 체크포인트 경로
+
+    Returns:
+        List[int]: 추천된 트랙 ID 리스트
+    '''
 
     config = OmegaConf.load(config_path)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    # Load trained song encoder and genre encoder
     song_encoder, genre_encoder, scaler, data_songs = load_model(config_path, model_path)
     song_encoder.to(device)
     genre_encoder.to(device)
     song_encoder.eval()
     genre_encoder.eval()
 
+    # Convert genre list to a single string if necessary
     for i in range(len(response['missing'])):
         if isinstance(response['missing'][i]['genres'], list):
             response['missing'][i]['genres'] = ", ".join(response['missing'][i]['genres'])
 
+    # Convert response data to DataFrame
     data = pd.DataFrame(response['missing'])
     data.columns = ['track', 'artist', 'playlist', 'genres', 'length', 'listeners']
     data = handle_missing_values(data)
     data = scale_numeric_features(data, scaler=scaler)
     data_songs = dataframe_to_dict(data)
 
+    # Generate embeddings for missing tracks
     playlist_embeddings_m = generate_embeddings(song_encoder, data_songs)
 
+    # Fetch existing track embeddings from database
     exists_track_ids = response.get('exists', [])
     playlist_embeddings_e_dict = fetch_track_embeddings_from_db(exists_track_ids, config)
 
+    # Collect valid existing track embeddings
     playlist_e_tensors = []
     for track_id in exists_track_ids:
         if track_id in playlist_embeddings_e_dict:
             playlist_e_tensors.append(playlist_embeddings_e_dict[track_id])
 
+    # Convert existing embeddings to tensor
     if len(playlist_e_tensors) > 0:
         playlist_e_tensor = torch.stack(playlist_e_tensors).to(device)  # (N_e, dim)
     else:
         playlist_e_tensor = torch.tensor([]).view(0, playlist_embeddings_m.shape[1]).to(device)
 
+    # Merge missing and existing track embeddings
     if playlist_e_tensor.shape[0] > 0 and playlist_embeddings_m.shape[0] > 0:
         playlist_tensor = torch.cat((playlist_e_tensor, playlist_embeddings_m), dim=0)
     elif playlist_e_tensor.shape[0] > 0:
@@ -120,6 +160,7 @@ def recommend_songs(response, candidates_track_ids, config_path, model_path):
     else:
         playlist_tensor = playlist_embeddings_m 
 
+    # Fetch candidate track embeddings from database
     candidate_embeddings_dict = fetch_track_embeddings_from_db(candidates_track_ids, config)
 
     candidate_track_ids_loaded = list(candidate_embeddings_dict.keys())
@@ -130,12 +171,15 @@ def recommend_songs(response, candidates_track_ids, config_path, model_path):
 
     candidate_tensor = torch.stack(candidate_embedding_list).to(device)  # (C, dim)
 
+    # Normalize embeddings for similarity calculation
     playlist_normalized = normalize(playlist_tensor, p=2, dim=1)  # (P, d)
     candidate_normalized = normalize(candidate_tensor, p=2, dim=1) # (C, d)
 
+    # Compute cosine similarity
     similarity_matrix = torch.matmul(candidate_normalized, playlist_normalized.T)
     mean_similarities = similarity_matrix.mean(dim=1) 
 
+    # Rank candidates by similarity
     sorted_indices = torch.argsort(mean_similarities, descending=True)
     sorted_candidate_ids = [candidate_track_ids_loaded[idx] for idx in sorted_indices.tolist()]
 
