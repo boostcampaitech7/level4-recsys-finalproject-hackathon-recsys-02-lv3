@@ -4,6 +4,7 @@ train:
 test: True
 finetune: False
 device: 'cuda'
+sample_mode: 'new'
 tensorboard: True
 
 latent_dim_rec: 64
@@ -15,7 +16,9 @@ lr: 0.001
 decay: 1e-4
 A_n_fold: 100
 A_split: False
-topks: [20,10]
+topks: [10,20]
+num_users: 14940
+num_items: 178592
 
 path:
   CODE: 'code'
