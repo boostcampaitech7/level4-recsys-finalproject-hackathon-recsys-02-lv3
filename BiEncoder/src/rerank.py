@@ -128,11 +128,14 @@ def sort_by_score_popularity(data, similarity_scores):
     후보곡의 (사용자 플레이리스트와의)유사도, 청취자수를 이용해 해당 곡들 추천 순서를 재정렬하는 함수
 
     Args:
-        data (DataFrame): 수정요망 
-        similarity_scores: 수정요망
+        data (pd.DataFrame): 청취자 수를 0~1 범위로 정규화한 'popularity' 칼럼이 포함된 DataFrame
+        similarity_scores (array-like): 후보곡의 유사도 점수 (임베딩 기반 유사도)
     
     Returns:
-        DataFrame: 수정요망 
+        pd.DataFrame: 최종 정렬된 DataFrame
+        상위 90개는 (0.9 * similarity + 0.1 * popularity)에 따라 내림차순 정렬되고,
+        하위 10개(가장 낮은 popularity)는 별도로 추출하여 맨 아래에 배치
+
     '''
 
     # 최종 score = 0.9 * similarity + 0.1 * normalized popularity
