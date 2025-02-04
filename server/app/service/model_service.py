@@ -6,7 +6,7 @@ class ModelService():
         self.setting = Settings()
 
     async def make_request(self, method: str, url: str, **kwargs) -> dict:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=60) as client:
             try:
                 response = await client.request(method, f"{self.setting.MODEL_API_URL}{url}", **kwargs)
                 response.raise_for_status()

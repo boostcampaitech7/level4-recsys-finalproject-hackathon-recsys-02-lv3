@@ -4,7 +4,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from app.config.settings import Settings
 from app.dto.auth import SpotifyTokenRequest
-from app.utils.spotify_api_service import SpotifyApiService
+from app.service.spotify_service import SpotifyService
 from app.utils.user_service import UserService
 from app.utils.utils import create_redirect_url
 from db.database_postgres import PostgresSessionLocal
@@ -13,7 +13,7 @@ import logging
 
 router = APIRouter()
 setting = Settings()
-spotify_service = SpotifyApiService()
+spotify_service = SpotifyService()
 logger = logging.getLogger("uvicorn")
 
 def get_postgres_db():

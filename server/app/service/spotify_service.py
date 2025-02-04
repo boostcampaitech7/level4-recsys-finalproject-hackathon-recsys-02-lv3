@@ -3,7 +3,7 @@ import base64
 from app.config.settings import Settings
 from app.dto.auth import SpotifyTokenRequest, SpotifyRefreshingTokenRequest
 
-class SpotifyApiService:
+class SpotifyService:
     def __init__(self):
         self.setting = Settings()
 
@@ -51,13 +51,15 @@ class SpotifyApiService:
             db.refresh(user)
             return tokens["access_token"]
 
-    async def _make_request(self, method: str, url: str, user, db, **kwargs) -> dict:
+    async def make_request(self, method: str, url: str, user, db, **kwargs) -> dict:
         async with httpx.AsyncClient() as client:
             headers = kwargs.pop("headers", {})
             headers["Authorization"] = f"Bearer {user.access_token}"
 
             try:
-                response = await client.request(method, url, headers=headers, **kwargs)
+                response = await client.request(
+                    method, f"{self.setting.SPOTIFY_API_URL}{url}", headers=headers, **kwargs
+                )
                 response.raise_for_status()
                 return response.json()
             except httpx.HTTPStatusError as e:
