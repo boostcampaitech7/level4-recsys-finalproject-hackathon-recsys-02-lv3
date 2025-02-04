@@ -6,7 +6,7 @@ from typing import List, Dict
 from omegaconf import OmegaConf
 import torch
 from torch.nn.functional import normalize
-from preprocess import handle_missing_values, scale_numeric_features, dataframe_to_dict
+from preprocess import handle_missing_values, scale_numeric_features, dataframe_to_dict, connect_db
 from train import load_model
 
 
@@ -51,6 +51,7 @@ def generate_embeddings(song_encoder, data_songs: List[Dict]) -> torch.Tensor:
         return torch.cat(embeddings_list, dim=0).to(device)
     else:
         return torch.tensor([]).to(device)
+
 
 def fetch_track_embeddings_from_db(track_ids: List[int], config) -> Dict[int, torch.Tensor]:
     '''
@@ -97,7 +98,63 @@ def fetch_track_embeddings_from_db(track_ids: List[int], config) -> Dict[int, to
 
     return candidate_embeddings
 
-def recommend_songs(response, candidates_track_ids, config_path, model_path):
+
+def fetch_data_listeners(conn, candidates_track_ids) -> pd.DataFrame:
+    '''
+    후보곡들의 아이디를 이용해 해당 곡들의 청취자수를 DB에서 불러오는 함수
+
+    Args:
+        candidates_track_ids (List[int]): 후보 트랙 ID 리스트
+    
+    Returns:
+        DataFrame: track_id과 listeners로 구성된 데이터프레임
+    '''
+
+    sql = """
+    SELECT 
+        t.track_id,
+        t.listeners
+    FROM track t
+    WHERE t.track_id = ANY(%s)
+    GROUP BY t.track_id, t.track, t.listeners
+    """
+    data = pd.read_sql(sql , conn, params=(candidates_track_ids,))
+    conn.close()
+    return data
+
+
+def sort_by_score_popularity(data, similarity_scores):
+    '''
+    후보곡의 (사용자 플레이리스트와의)유사도, 청취자수를 이용해 해당 곡들 추천 순서를 재정렬하는 함수
+
+    Args:
+        data (DataFrame): 수정요망 
+        similarity_scores: 수정요망
+    
+    Returns:
+        DataFrame: 수정요망 
+    '''
+
+    # 최종 score = 0.9 * similarity + 0.1 * normalized popularity
+    data['similarity'] = similarity_scores
+    data['score'] = 0.9 * similarity_scores + 0.1 * data['popularity']
+
+    # popularity 하위 10개, 상위 90개 
+    bottom_10 = data.nsmallest(10, 'popularity')
+    bottom_10_indices = bottom_10.index
+    top_candidates = data.drop(bottom_10_indices)
+
+    # 상위 90개는 score 내림차순으로 정렬, 하위 10개는 popularity 내림차순 정렬
+    top_candidates_sorted = top_candidates.sort_values(by='score', ascending=False)
+    bottom_candidates_sorted = data.loc[bottom_10_indices].sort_values(by='popularity', ascending=False)
+
+    # 최종 정렬: 상위 90개 + 하위 10개(맨 아래 배치)
+    data_sorted = pd.concat([top_candidates_sorted, bottom_candidates_sorted])
+
+    return data_sorted
+
+
+def recommend_songs(song_encoder, query_encoder, response, candidates_track_ids, config_path, model_path):
     '''
     사용자 플레이리스트와 후보 트랙 간의 유사도를 기반으로 추천 곡을 반환하는 함수
 
@@ -115,7 +172,6 @@ def recommend_songs(response, candidates_track_ids, config_path, model_path):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Load trained song encoder and query encoder
-    song_encoder, query_encoder, scaler, data_songs = load_model(config_path, model_path)
     song_encoder.to(device)
     query_encoder.to(device)
     song_encoder.eval()
@@ -139,20 +195,16 @@ def recommend_songs(response, candidates_track_ids, config_path, model_path):
     # Fetch existing track embeddings from database
     exists_track_ids = response.get('exists', [])
     playlist_embeddings_e_dict = fetch_track_embeddings_from_db(exists_track_ids, config)
-
-    # Collect valid existing track embeddings
     playlist_e_tensors = []
     for track_id in exists_track_ids:
         if track_id in playlist_embeddings_e_dict:
             playlist_e_tensors.append(playlist_embeddings_e_dict[track_id])
 
-    # Convert existing embeddings to tensor
+    # Merge missing and existing track embeddings
     if len(playlist_e_tensors) > 0:
         playlist_e_tensor = torch.stack(playlist_e_tensors).to(device)  # (N_e, dim)
     else:
         playlist_e_tensor = torch.tensor([]).view(0, playlist_embeddings_m.shape[1]).to(device)
-
-    # Merge missing and existing track embeddings
     if playlist_e_tensor.shape[0] > 0 and playlist_embeddings_m.shape[0] > 0:
         playlist_tensor = torch.cat((playlist_e_tensor, playlist_embeddings_m), dim=0)
     elif playlist_e_tensor.shape[0] > 0:
@@ -162,37 +214,45 @@ def recommend_songs(response, candidates_track_ids, config_path, model_path):
 
     # Fetch candidate track embeddings from database
     candidate_embeddings_dict = fetch_track_embeddings_from_db(candidates_track_ids, config)
-
     candidate_track_ids_loaded = list(candidate_embeddings_dict.keys())
     candidate_embedding_list = [candidate_embeddings_dict[tid] for tid in candidate_track_ids_loaded]
     if len(candidate_embedding_list) == 0:
         logging.warning("[recommend_songs] No candidate embeddings found.")
         return []
-
     candidate_tensor = torch.stack(candidate_embedding_list).to(device)  # (C, dim)
 
-    # Normalize embeddings for similarity calculation
+    # Compute Cosine Similarity
     playlist_normalized = normalize(playlist_tensor, p=2, dim=1)  # (P, d)
     candidate_normalized = normalize(candidate_tensor, p=2, dim=1) # (C, d)
-
-    # Compute cosine similarity
     similarity_matrix = torch.matmul(candidate_normalized, playlist_normalized.T)
     mean_similarities = similarity_matrix.mean(dim=1) 
+    similarity_scores = mean_similarities.cpu().numpy()  # shape: (C,)
 
-    # Rank candidates by similarity
-    sorted_indices = torch.argsort(mean_similarities, descending=True)
-    sorted_candidate_ids = [candidate_track_ids_loaded[idx] for idx in sorted_indices.tolist()]
+    # Compute Popularity 
+    conn = connect_db(config)
+    data = fetch_data_listeners(conn, candidates_track_ids) 
+    min_listeners = data['listeners'].min()
+    max_listeners = data['listeners'].max() 
+    if max_listeners > min_listeners: # listeners 칼럼을 0 ~ 1 사이로 스케일링 (min-max scaling)
+        data['popularity'] = (data['listeners'] - min_listeners) / (max_listeners - min_listeners)
+    else:
+        data['popularity'] = 1.0
 
-    return sorted_candidate_ids
+    # Sort by Score and popularity
+    data_sorted = sort_by_score_popularity(data, similarity_scores)
+    sorted_candidate_ids = data_sorted['track_id'].tolist()
+
+    return sorted_candidate_ids    
 
 
 if __name__ == "__main__":
     config_path = "../config.yaml"
     model_path = "song_query_model.pt"
+    song_encoder, query_encoder, scaler, data_songs = load_model(config_path, model_path) # 모델 로드 
     
     response_example = {
         "user_id": "user_123",
-        "exists": [1951, 1511, 9383],  # 이미 가진 곡(트랙 ID)
+        "exists": [647, 5918, 6760],  # 이미 가진 곡(트랙 ID)
         "missing": [
             {
                 "track_name": "I'm Not the Only One",
@@ -213,12 +273,15 @@ if __name__ == "__main__":
         ]
     }
 
-    candidates_track_ids_example = list(range(1, 100000))  # 가상의 후보 트랙ID들
+    import random
+    candidates_track_ids_example = random.sample(range(1, 2241631), 100) # 가상의 후보 트랙ID들
 
     recommended_ids = recommend_songs(
-        response_example,
-        candidates_track_ids_example,
-        config_path,
-        model_path,
-    )
+            song_encoder, 
+            query_encoder,
+            response_example,
+            candidates_track_ids_example,
+            config_path,
+            model_path,
+        )
     print("[TEST] Recommended Track IDs:", recommended_ids[:10])
