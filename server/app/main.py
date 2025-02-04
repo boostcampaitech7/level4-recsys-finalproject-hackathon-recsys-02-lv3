@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.router import auth, playlist, recommendation, log, onboarding
+from app.router import auth, playlist, recommendation, onboarding, interaction
 
 app = FastAPI()
 
@@ -15,6 +15,6 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(onboarding.router)
+app.include_router(interaction.router)
 app.include_router(playlist.router)
 app.include_router(recommendation.router)
-app.include_router(log.router)

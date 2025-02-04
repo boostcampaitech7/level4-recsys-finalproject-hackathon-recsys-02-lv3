@@ -1,16 +1,16 @@
 from pymongo import MongoClient
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 import certifi
 import pytz
-import httpx
 import logging
 from datetime import datetime
 from app.config.settings import Settings
-from app.dto.log import LoggingPlaylist, LoggingPlaylistRequest
-from app.dto.recommendation import PlaylistRecommendation
+from app.dto.interaction import Log, Interactions, SelectedTrack
+from app.service.model_service import ModelService
 
 setting = Settings()
+model_service = ModelService()
 logger = logging.getLogger("uvicorn")
 
 def get_seoul_timestamp():
@@ -32,11 +32,14 @@ interaction_collection = db.interaction
 router = APIRouter()
 
 @router.post("/log/playlist")
-async def get_onboarding(loggingPlaylistRequest: LoggingPlaylistRequest):
-    items = loggingPlaylistRequest.items
+async def get_interaction_by_result(interactions: Interactions):
+    '''
+    플레이리스트 추천 결과를 바탕으로 생성된 상호작용 로그 적재
+    '''
+    items = interactions.items
     for item in items:
-        log = LoggingPlaylist(
-            user_id=loggingPlaylistRequest.user_id, 
+        log = Log(
+            user_id=interactions.user_id, 
             track_id=item.track_id, 
             process=item.process, 
             action=item.action, 
@@ -46,12 +49,14 @@ async def get_onboarding(loggingPlaylistRequest: LoggingPlaylistRequest):
     return JSONResponse(status_code=200, content={"message":"logging complete"})
 
 @router.post("/onboarding/select")
-async def get_onboarding(loggingPlaylistRequest: LoggingPlaylistRequest):
-    items = loggingPlaylistRequest.items
+async def get_interaction_by_onboarding(interactions: Interactions):
+    '''
+    온보딩 과정에서 생성된 상호작용 로그 적재 및 유저 임베딩 생성
+    '''
     tracks = []
-    for item in items:
-        log = LoggingPlaylist(
-            user_id=loggingPlaylistRequest.user_id, 
+    for item in interactions.items:
+        log = Log(
+            user_id=interactions.user_id, 
             track_id=item.track_id, 
             process=item.process, 
             action=item.action, 
@@ -62,13 +67,10 @@ async def get_onboarding(loggingPlaylistRequest: LoggingPlaylistRequest):
         interaction_collection.insert_one(log.dict())
     logger.info(f"selected track: {tracks}")
 
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{setting.MODEL_API_URL}/onboarding/select",
-            json=PlaylistRecommendation(user_id=loggingPlaylistRequest.user_id, items=tracks).dict()
-        )
+    response = await model_service.make_request(
+        method='POST',
+        url="/onboarding/select",
+        json=SelectedTrack(user_id=interactions.user_id, items=tracks).dict()
+    )
 
-    if response.status_code == 200:
-        return JSONResponse(status_code=200, content={"message":"success"})
-    else:
-        raise HTTPException(status_code=response.status_code, detail=response.json())
+    return JSONResponse(status_code=200, content={"message":"Successfully created user embedding"})
