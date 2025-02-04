@@ -1,10 +1,9 @@
-import httpx
 from fastapi import APIRouter, HTTPException, Query, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from app.config.settings import Settings
 from app.utils.spotify_api_service import SpotifyApiService
-from app.dto.playlist import Playlist, Artist, Track, InsertTrackRequest
+from app.dto.playlist import Playlist, InsertTrackRequest
 from db.database_postgres import PostgresSessionLocal, User
 import logging
 

@@ -1,17 +1,15 @@
 import httpx
 import re
-import redis
-import json
 import asyncio
 from fastapi import APIRouter, HTTPException, Query, Depends, File, UploadFile, Form
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from difflib import get_close_matches
-from app.dto.recommendation import OnboardingRequest, PlaylistRecommendation, TrackIdPair, OCRTrack, OCRRecommendation
+from app.dto.recommendation import OCRTrack, OCRRecommendation
 from app.utils.spotify_api_service import SpotifyApiService
 from app.config.settings import Settings
-from app.dto.recommendation import Onboarding, Artist, Recommendation, TrackMetaData, RecommendationRequest
+from app.dto.recommendation import Recommendation, TrackMetaData, RecommendationRequest
 from db.database_postgres import PostgresSessionLocal, User
 from typing import Optional
 import logging
@@ -27,51 +25,6 @@ logger = logging.getLogger("uvicorn")
 router = APIRouter()
 setting = Settings()
 spotify_service = SpotifyApiService()
-r = redis.Redis(host=setting.REDIS_HOST, port=setting.REDIS_PORT, password=setting.REDIS_PASSWORD, decode_responses=True)
-        
-@router.post("/onboarding", response_model=list[Onboarding])
-async def get_onboarding(onboadingRequest: OnboardingRequest, db: Session = Depends(get_db)):
-    find_user = db.query(User).filter(User.user_id == onboadingRequest.user_id).first()
-    if not find_user:
-        raise HTTPException(status_code=404, detail="cannot find user")
-    items1 = []
-    items2 = []
-    logger.info(f"tags: {onboadingRequest.tags}")
-    
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{setting.MODEL_API_URL}/onboarding",
-            json=onboadingRequest.dict()
-        )
-        if response.status_code == 200:
-            pairs = response.json()["items"]
-            items1_id = [pair["item1"] for pair in pairs]
-            items2_id = [pair["item2"] for pair in pairs]
-            def fetch_tracks_from_redis(track_ids, redis_client):
-                track_data_list = redis_client.mget([str(track_id) for track_id in track_ids])
-                items = []
-
-                for track_data in track_data_list:
-                    if not track_data:
-                        raise HTTPException(status_code=404, detail="Track not found in Redis")
-                    
-                    track_info = json.loads(track_data)
-                    items.append(Onboarding(
-                        track_id=track_info.get("track_id", 0),
-                        track_name=track_info.get("track_name", ""),
-                        track_img_url=track_info.get("track_img_url", ""),
-                        artists=[Artist(artist_name=artist) for artist in track_info.get("artist", "")], 
-                        tags=[track_info.get("tag", "")]
-                    ).dict())
-
-                return items
-
-            # items1, items2 처리
-            items1 = fetch_tracks_from_redis(items1_id, r)
-            items2 = fetch_tracks_from_redis(items2_id, r)
-            return JSONResponse(status_code=200, content={"items1":items1, "items2":items2})
-        else:
-            raise HTTPException(status_code=response.status_code, detail=response.json())
         
 @router.get("/playlists/{playlist_id}/tracks", response_model=list[Recommendation])
 async def get_metadata_based_playlist(

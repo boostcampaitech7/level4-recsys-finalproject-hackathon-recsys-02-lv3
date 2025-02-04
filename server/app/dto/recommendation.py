@@ -1,10 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional
-from app.dto.playlist import Artist
-
-class OnboardingRequest(BaseModel):
-    user_id: int
-    tags: list[int]
+from app.dto.common import Artist
 
 class PlaylistRecommendation(BaseModel):
     user_id: int
@@ -23,10 +19,6 @@ class RecommendationRequest(BaseModel):
     exists: list[int]
     missing: list[TrackMetaData]
 
-class TrackIdPair(BaseModel):
-    item1: int
-    item2: int
-
 class OCRTrack(BaseModel):
     track_name: str
     artist_name: str
@@ -34,13 +26,6 @@ class OCRTrack(BaseModel):
 class OCRRecommendation(BaseModel):
     user_id: int
     items: list[OCRTrack]
-
-class Onboarding(BaseModel):
-    track_id: int
-    track_name: str
-    track_img_url: Optional[str] = None
-    artists: list[Artist]
-    tags: list[str] = ["태그"]
 
 class Recommendation(BaseModel):
     track_id: int

@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     REDIS_HOST: str
     REDIS_PORT: int
     REDIS_PASSWORD: str
+    FRONT_BASE_URL: str
 
     class Config:
         env_file = "app/config/.env"
