@@ -40,7 +40,7 @@ async def get_onboarding(loggingPlaylistRequest: LoggingPlaylistRequest):
             track_id=item.track_id, 
             process=item.process, 
             action=item.action, 
-            timestamp=get_seoul_timestamp()
+            timestamp=get_seoul_timestamp() 
         )
         interaction_collection.insert_one(log.dict())
     return JSONResponse(status_code=200, content={"message":"logging complete"})
@@ -60,6 +60,7 @@ async def get_onboarding(loggingPlaylistRequest: LoggingPlaylistRequest):
         if item.action == "positive":
             tracks.append(item.track_id)
         interaction_collection.insert_one(log.dict())
+    logger.info(f"selected track: {tracks}")
 
     async with httpx.AsyncClient() as client:
         response = await client.post(

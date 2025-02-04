@@ -62,7 +62,6 @@ async def insert_playlist_track(playlist_id: str, tracks: InsertTrackRequest, us
         if items:
             track_uris.append(items[0]['uri'])
             
-        
     if track_uris:
         response = await spotify_service._make_request(
             method='POST',
