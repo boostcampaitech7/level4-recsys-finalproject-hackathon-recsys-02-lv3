@@ -43,6 +43,3 @@ if __name__=='__main__':
     config = OmegaConf.load('config.yaml')
     print(f"config: {OmegaConf.to_yaml(config)}")
     ROOT_PATH = os.path.dirname(os.path.dirname(__file__))
-    
-    for uid in range(config.num_users):
-        print(inference(uid))

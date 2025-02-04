@@ -79,7 +79,7 @@ class Loader(BasicDataset):
         pos_file = os.path.join(path, 'pos.txt')
         neg_file = os.path.join(path, 'neg.txt')
         self.path = path
-        trainUniqueUsers, trainItem, testItem, trainUser, testUser = [], [], [], [], []
+        trainUniqueUsers, trainItem, trainUser = [], [], []
         self.traindataSize = 0
 
         with open(pos_file) as f:
@@ -88,8 +88,10 @@ class Loader(BasicDataset):
                     uid, items = l.strip('\n').split('\t')
                     uid = int(uid)
                     items = list(set(list(map(int, items.split()))))
+                    train_items = items
                     random.shuffle(items)
                     if config.test:
+                        testItem, testUser = [], []
                         split = int(len(items)*0.8)
                         train_items, test_items = items[:split], items[split:]
                         testUser.extend([uid]*len(test_items))
@@ -198,32 +200,27 @@ class Loader(BasicDataset):
     def getSparseGraph(self):
         print("loading adjacency matrix")
         if self.Graph is None:
-            try:
-                pre_adj_mat = sp.load_npz(self.path + '/s_pre_adj_mat.npz')
-                print("successfully loaded...")
-                norm_adj = pre_adj_mat
-            except :
-                print("generating adjacency matrix")
-                s = time()
-                adj_mat = sp.dok_matrix((self.n_users + self.m_items, self.n_users + self.m_items), dtype=np.float32)
-                adj_mat = adj_mat.tolil()
-                R = self.UserItemNet.tolil()
-                adj_mat[:self.n_users, self.n_users:] = R
-                adj_mat[self.n_users:, :self.n_users] = R.T
-                adj_mat = adj_mat.todok()
-                # adj_mat = adj_mat + sp.eye(adj_mat.shape[0])
-                
-                rowsum = np.array(adj_mat.sum(axis=1))
-                d_inv = np.power(rowsum, -0.5).flatten()
-                d_inv[np.isinf(d_inv)] = 0.
-                d_mat = sp.diags(d_inv)
-                
-                norm_adj = d_mat.dot(adj_mat)
-                norm_adj = norm_adj.dot(d_mat)
-                norm_adj = norm_adj.tocsr()
-                end = time()
-                print(f"costing {end-s}s, saved norm_mat...")
-                sp.save_npz(self.path + '/s_pre_adj_mat.npz', norm_adj)
+            print("generating adjacency matrix")
+            s = time()
+            adj_mat = sp.dok_matrix((self.n_users + self.m_items, self.n_users + self.m_items), dtype=np.float32)
+            adj_mat = adj_mat.tolil()
+            R = self.UserItemNet.tolil()
+            adj_mat[:self.n_users, self.n_users:] = R
+            adj_mat[self.n_users:, :self.n_users] = R.T
+            adj_mat = adj_mat.todok()
+            # adj_mat = adj_mat + sp.eye(adj_mat.shape[0])
+            
+            rowsum = np.array(adj_mat.sum(axis=1))
+            d_inv = np.power(rowsum, -0.5).flatten()
+            d_inv[np.isinf(d_inv)] = 0.
+            d_mat = sp.diags(d_inv)
+            
+            norm_adj = d_mat.dot(adj_mat)
+            norm_adj = norm_adj.dot(d_mat)
+            norm_adj = norm_adj.tocsr()
+            end = time()
+            print(f"costing {end-s}s, saved norm_mat...")
+            sp.save_npz(self.path + '/s_pre_adj_mat.npz', norm_adj)
 
             if self.split == True:
                 self.Graph = self._split_A_hat(norm_adj)
