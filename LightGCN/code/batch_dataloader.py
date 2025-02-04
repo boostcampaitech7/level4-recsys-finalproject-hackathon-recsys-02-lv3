@@ -79,7 +79,7 @@ class Loader(BasicDataset):
         pos_file = os.path.join(path, 'pos.txt')
         neg_file = os.path.join(path, 'neg.txt')
         self.path = path
-        trainUniqueUsers, trainItem, trainUser = [], [], []
+        trainUniqueUsers, trainItem, trainUser, testItem, testUser = [], [], [], [], []
         self.traindataSize = 0
 
         with open(pos_file) as f:
@@ -91,7 +91,7 @@ class Loader(BasicDataset):
                     train_items = items
                     random.shuffle(items)
                     if config.test:
-                        testItem, testUser = [], []
+                        
                         split = int(len(items)*0.8)
                         train_items, test_items = items[:split], items[split:]
                         testUser.extend([uid]*len(test_items))
@@ -198,7 +198,6 @@ class Loader(BasicDataset):
         return torch.sparse.FloatTensor(index, data, torch.Size(coo.shape))
         
     def getSparseGraph(self):
-        print("loading adjacency matrix")
         if self.Graph is None:
             print("generating adjacency matrix")
             s = time()
