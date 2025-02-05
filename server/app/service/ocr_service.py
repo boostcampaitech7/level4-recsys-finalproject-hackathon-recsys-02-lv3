@@ -7,12 +7,29 @@ class OCRService():
     def __init__(self):
         self.setting = Settings()
 
+    def _clean_name(self, name: str) -> str:
+        """각 이름에서 '동영상'과 '19'를 제거"""
+        name = re.sub(r'동영상\s*', '', name).strip()  # 맨 앞의 '동영상' 제거
+        name = re.sub(r'^19\s*', '', name).strip() # 맨 앞의 '19' 제거거
+        return name
+
     def _text_preprocessing(self, text: str):
-        text = re.sub(r'동영상\s*·?\s*', '', text)
-        text = re.sub(r'^19\s*', '', text).strip()
         pattern = r'([^\n·]+)\s*·?\s*([^\n·]+)'
         matches = re.findall(pattern, text)
-        return matches
+        # 추출된 결과를 정제하여 반환
+        cleaned_matches = [(self._clean_name(track), self._clean_name(artist)) for track, artist in matches]
+        return cleaned_matches
+    
+    def replace_text(self, text: str):
+        return text.replace('...', '%').strip()
+    
+    def remove_text(self, text: str):
+        return text.replace('%', '').strip()
+    
+    def normalize_text(self, text: str):
+        text = text.lower().strip()
+        text = text.replace(" ", "")  # 공백 제거
+        return text
 
     async def make_request(self, image) -> dict:
         async with httpx.AsyncClient(timeout=60) as client:
