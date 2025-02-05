@@ -5,7 +5,6 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from typing import Optional
-from app.config.settings import Settings
 from app.service.spotify_service import SpotifyService
 from app.service.lastfm_service import LastfmService
 from app.service.model_service import ModelService

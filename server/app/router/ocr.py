@@ -1,0 +1,129 @@
+import asyncio
+import logging
+from fastapi import APIRouter, HTTPException, Depends, File, UploadFile, Form
+from fastapi.responses import JSONResponse
+from sqlalchemy.orm import Session
+from sqlalchemy import text
+from difflib import get_close_matches
+from app.service.lastfm_service import LastfmService
+from app.service.model_service import ModelService
+from app.service.ocr_service import OCRService
+from app.config.settings import Settings
+from app.dto.common import Recommendation, RecommendationRequest
+from app.dto.ocr import OCRTrack, OCRRecommendation
+from db.database_postgres import PostgresSessionLocal, User
+
+def get_db():
+    db = PostgresSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+logger = logging.getLogger("uvicorn")
+router = APIRouter()
+setting = Settings()
+lastfm_service = LastfmService()
+model_service = ModelService()
+ocr_service = OCRService()
+
+@router.post("/playlist/image", response_model=list[OCRTrack])
+async def upload_playlist_image(
+    user_id: int = Form(...),
+    image: UploadFile = File(...), 
+    db: Session = Depends(get_db)
+):
+    '''
+    플레이리스트 캡쳐 이미지에서 ocr api를 통해 곡명과 아티스트명 추출
+    '''
+
+    # 유저 정보 확인 
+    find_user = db.query(User).filter(User.user_id == user_id).first()
+    if not find_user:
+        raise HTTPException(status_code=404, detail="cannot find user")
+    
+    track_artist = await ocr_service.make_request(image)  
+    tracks = []
+    for track, artist in track_artist:
+        tracks.append(OCRTrack(
+            track_name=track,
+            artist_name=artist
+        ).dict())
+    return JSONResponse(status_code=200, content=tracks)
+    
+@router.post("/playlist/image/tracks", response_model=Recommendation)
+async def get_recommendation_by_image(ocrRecommendation: OCRRecommendation, db: Session = Depends(get_db)):
+    '''
+    플레이리스트 캡쳐 이미지 기반으로 추천 결과 생성
+    '''
+    find_user = db.query(User).filter(User.user_id == ocrRecommendation.user_id).first()
+    if not find_user:
+        raise HTTPException(status_code=404, detail="cannot find user")
+    
+    def replace_ellipses(text: str):
+        return text.replace('...', '%').strip()
+    
+    def remove_ellipses(text: str):
+        return text.replace('%', '')
+    
+    track_artist_list = [(replace_ellipses(item.track_name), replace_ellipses(item.artist_name)) for item in ocrRecommendation.items]
+
+    query = text("""
+        SELECT t.track_id, t.track, a.artist, t.listeners
+        FROM track t
+        JOIN track_artist ta ON ta.track_id = t.track_id
+        JOIN artist a ON ta.artist_id = a.artist_id
+        WHERE 
+            (a.artist LIKE ANY (ARRAY[:artist_names])) 
+            AND (t.track LIKE ANY (ARRAY[:track_names]));
+    """)
+
+    track_names = [track for track, artist in track_artist_list]
+    artist_names = [artist.split(' & ')[0] for track, artist in track_artist_list]
+
+    db_results = db.execute(query, {"artist_names": artist_names, "track_names": track_names}).fetchall()
+
+    def normalize_title(title):
+        title = title.lower().strip()
+        title = title.replace(" ", "")  # 공백 제거
+        return title
+
+    # DB에서 찾은 트랙 ID 정리 (listeners가 가장 높은 트랙 저장)
+    track_dict = {}
+    for track_id, track, artist, listeners in db_results:
+        key = (normalize_title(track), normalize_title(artist))
+        if key not in track_dict or listeners > track_dict[key][1]:  
+            track_dict[key] = (track_id, listeners)  # listeners 수가 가장 많은 트랙 선택
+
+    exists = []
+    missing_requests = []
+
+    for track, artist in track_artist_list:
+        normalized_track = normalize_title(track)
+        normalized_artist = normalize_title(artist)
+
+        # 유사한 제목 찾기
+        possible_matches = [
+            (key, track_dict[key][1])  # (트랙 key, listeners 수)
+            for key in track_dict.keys()
+            if get_close_matches(normalized_track, [key[0]], n=1, cutoff=0.6)  # 유사도 60% 이상
+            and get_close_matches(normalized_artist, [key[1]], n=1, cutoff=0.6)
+        ]
+
+        if possible_matches:
+            # listeners 수가 가장 높은 트랙 선택
+            best_match = max(possible_matches, key=lambda x: x[1])[0]  # 가장 높은 listeners 수를 가진 key 선택
+            exists.append(track_dict[best_match][0])
+        else:
+            missing_requests.append((artist, track))  # 못 찾은 트랙 저장
+    # Last.fm API 병렬 요청
+    missing_metadata = await asyncio.gather(*(lastfm_service.fetch_metadata(remove_ellipses(artist), remove_ellipses(track)) for artist, track in missing_requests))
+    missing = [meta for meta in missing_metadata if meta is not None]
+
+    response = await model_service.make_request(
+        method='POST',
+        url='/playlist',
+        json=RecommendationRequest(user_id=ocrRecommendation.user_id, exists=exists, missing=missing).dict()
+    )
+
+    return JSONResponse(status_code=200, content=response)

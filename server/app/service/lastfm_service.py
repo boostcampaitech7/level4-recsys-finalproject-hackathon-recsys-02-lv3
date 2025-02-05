@@ -6,7 +6,7 @@ class LastfmService():
     def __init__(self):
         self.setting = Settings()
 
-    async def fetch_metadata(self, artist, track, playlist_name):
+    async def fetch_metadata(self, artist, track, playlist_name = " "):
         async with httpx.AsyncClient() as client:
             response = await client.get(
                 f"{self.setting.LASTFM_API_URL}&api_key={self.setting.LASTFM_API_KEY}&artist={artist}&track={track}"
