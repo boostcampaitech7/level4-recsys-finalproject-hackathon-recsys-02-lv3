@@ -86,8 +86,7 @@ class LightGCN(BasicModel):
             graph = self.__dropout_x(self.Graph, keep_prob)
         return graph
     
-    # propagating 컴포넌트
-    def computer(self):
+    def message_passing(self):
         """
         propagate methods for lightGCN
         """       
@@ -98,7 +97,6 @@ class LightGCN(BasicModel):
         embs = [all_emb]
         if self.config.dropout:
             if self.training:
-                print("droping")
                 g_droped = self.__dropout(self.keep_prob)
             else:
                 g_droped = self.Graph        
@@ -123,14 +121,14 @@ class LightGCN(BasicModel):
         return users, items
     
     def getUsersRating(self, users):
-        all_users, all_items = self.computer()
+        all_users, all_items = self.message_passing()
         users_emb = all_users[users.long()]
         items_emb = all_items
         rating = self.f(torch.matmul(users_emb, items_emb.t()))
         return rating
     
     def getEmbedding(self, users, pos_items, neg_items):
-        all_users, all_items = self.computer()
+        all_users, all_items = self.message_passing()
         users_emb = all_users[users]
         pos_emb = all_items[pos_items]
         neg_emb = all_items[neg_items]
@@ -159,7 +157,7 @@ class LightGCN(BasicModel):
        
     def forward(self, users, items):
         # compute embedding
-        all_users, all_items = self.computer()
+        all_users, all_items = self.message_passing()
         print('forward')
         users_emb = all_users[users]
         items_emb = all_items[items]
