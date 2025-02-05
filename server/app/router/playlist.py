@@ -8,8 +8,8 @@ from typing import Optional
 from app.service.spotify_service import SpotifyService
 from app.service.lastfm_service import LastfmService
 from app.service.model_service import ModelService
-from app.dto.playlist import Playlist, InsertTrackRequest
-from app.dto.common import Recommendation, RecommendationRequest
+from app.dto.playlist import Playlist
+from app.dto.common import Recommendation, RecommendationRequest, InsertTrackRequest
 from db.database_postgres import PostgresSessionLocal, User
 
 def get_db():

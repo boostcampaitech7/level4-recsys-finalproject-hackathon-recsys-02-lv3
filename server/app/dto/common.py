@@ -23,3 +23,10 @@ class RecommendationRequest(BaseModel):
     user_id: int
     exists: list[int]
     missing: list[TrackMetaData]
+
+class InsertTrack(BaseModel):
+    track_name: str
+    artists: list[Artist]
+
+class InsertTrackRequest(BaseModel):
+    items: list[InsertTrack]

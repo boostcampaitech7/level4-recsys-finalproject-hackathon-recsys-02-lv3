@@ -66,7 +66,7 @@ class SpotifyService:
                 if e.response.status_code == 401:
                     user.access_token = await self._refresh_access_token(user, db)
                     headers["Authorization"] = f"Bearer {user.access_token}"
-                    response = await client.request(method, url, headers=headers, **kwargs)
+                    response = await client.request(method, f"{self.setting.SPOTIFY_API_URL}{url}", headers=headers, **kwargs)
                     response.raise_for_status()
                     return response.json()
                 raise

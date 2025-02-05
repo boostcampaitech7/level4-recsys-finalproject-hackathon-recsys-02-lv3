@@ -1,15 +1,16 @@
 import asyncio
 import logging
-from fastapi import APIRouter, HTTPException, Depends, File, UploadFile, Form
+from fastapi import APIRouter, HTTPException, Depends, File, UploadFile, Form, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from difflib import get_close_matches
+from app.service.spotify_service import SpotifyService
 from app.service.lastfm_service import LastfmService
 from app.service.model_service import ModelService
 from app.service.ocr_service import OCRService
 from app.config.settings import Settings
-from app.dto.common import Recommendation, RecommendationRequest
+from app.dto.common import Recommendation, RecommendationRequest, InsertTrackRequest
 from app.dto.ocr import OCRTrack, OCRRecommendation
 from db.database_postgres import PostgresSessionLocal, User
 
@@ -23,6 +24,7 @@ def get_db():
 logger = logging.getLogger("uvicorn")
 router = APIRouter()
 setting = Settings()
+spotify_service = SpotifyService()
 lastfm_service = LastfmService()
 model_service = ModelService()
 ocr_service = OCRService()
@@ -120,3 +122,46 @@ async def get_recommendation_by_image(ocrRecommendation: OCRRecommendation, db: 
     )
 
     return JSONResponse(status_code=200, content=response)
+
+@router.post("/playlist/create")
+async def create_playlist(tracks: InsertTrackRequest, user_id: int = Query(...), db: Session = Depends(get_db)):
+    '''
+    유저가 선택한 트랙을 담은 새로운 플레이리스트 생성
+    '''
+    # 유저 정보 확인
+    find_user = db.query(User).filter(User.user_id == user_id).first()
+    if not find_user:
+        raise HTTPException(status_code=404, detail="cannot find user")
+    
+    track_uris = []
+    for track in tracks.items:
+        query = f'track:"{track.track_name}" artist:"{track.artists[0].artist_name}"'
+        response = await spotify_service.make_request(
+            method='GET',
+            url="/search",
+            user=find_user,
+            db=db,
+            params={"q":query, "type":"track", "limit":3}
+        )
+        items = response['tracks']['items']
+        if items:
+            track_uris.append(items[0]['uri'])
+    if track_uris:
+        response = await spotify_service.make_request(
+            method='POST',
+            url=f"/users/{find_user.spotify_id}/playlists",
+            user=find_user,
+            db=db, 
+            json={"name":"new playlist"}
+        )
+        playlist_id = response["id"]
+        response = await spotify_service.make_request(
+            method='POST',
+            url=f"/playlists/{playlist_id}/tracks",
+            user=find_user,
+            db=db,
+            json={"uris":track_uris}
+        )
+        return JSONResponse(status_code=200, content={"message":"Playlist created successfully"})
+    else:
+        return JSONResponse(status_code=200, content={"message":"cannot find tracks"})
