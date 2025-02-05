@@ -4,17 +4,16 @@ import { useUserId } from "~/utils/userInfoContext";
 import { AuthGuard } from "~/components/AuthGuard";
 import { useMutation } from "@tanstack/react-query";
 import {
-  postTestOnboardingMutation,
-  postTestOnboardingSelectMutation,
+  postOnboardingMutation,
+  postOnboardingSelectMutation,
 } from "~/remotes";
 import { SelectTags } from "./SelectTags";
-import { SwitchCase } from "@toss/react";
 import { SelectTracks } from "./SelectTracks";
 import { OnboardingSelectItemType, TrackOnboardingSchema } from "~/remotes/dio";
 
 export type SelectTrackType = [
   TrackOnboardingSchema[],
-  TrackOnboardingSchema[]
+  TrackOnboardingSchema[],
 ];
 
 const OnBoardingPage = () => {
@@ -23,14 +22,12 @@ const OnBoardingPage = () => {
 
   const [step, setStep] = useState<"tag" | "track">("tag");
   const [trackList, setTrackList] = useState<SelectTrackType>();
-  const { mutateAsync: mutateSelectTag } = useMutation(
-    postTestOnboardingMutation
-  );
+  const { mutateAsync: mutateSelectTag } = useMutation(postOnboardingMutation);
   const { mutateAsync: mutateSelectTrack } = useMutation(
-    postTestOnboardingSelectMutation
+    postOnboardingSelectMutation
   );
 
-  const handleSubmitTags = async (selectedTags: string[]) => {
+  const handleSubmitTags = async (selectedTags: number[]) => {
     const result = await mutateSelectTag({ user_id: id, tags: selectedTags });
     setTrackList([result.items1, result.items2]);
     setStep("track");
@@ -45,15 +42,10 @@ const OnBoardingPage = () => {
 
   return (
     <>
-      <SwitchCase
-        caseBy={{
-          tag: <SelectTags onSubmit={handleSubmitTags} />,
-          track: trackList && (
-            <SelectTracks trackList={trackList} onSubmit={handleSubmitTracks} />
-          ),
-        }}
-        value={step}
-      />
+      {step === "tag" && <SelectTags onSubmit={handleSubmitTags} />}
+      {step === "track" && trackList && (
+        <SelectTracks trackList={trackList} onSubmit={handleSubmitTracks} />
+      )}
     </>
   );
 };

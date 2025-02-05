@@ -29,11 +29,11 @@ button {
 }
 
 /* Remove list styles (bullets/numbers) */
-ol,
+/* ol,
 ul,
 menu {
   list-style: none;
-}
+} */
 
 /* For images to not be able to exceed their container */
 img {
@@ -42,8 +42,9 @@ img {
 }
 
 body {
-  font-family: "Noto Sans KR", serif;
+  font-family: "Noto Sans KR", sans-serif;
   letter-spacing: -0.5px;
+  background-color: #121212;
 }
 
 /* removes spacing between cells in tables */

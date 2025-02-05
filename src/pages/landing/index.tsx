@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { BASE_URL } from "~/libs/api";
 import { typedLocalStorage } from "~/utils/localStorage";
 import spotifyLogo from "~/assets/spotifyLogin.png";
+import { MobilePadding } from "~/components/MobilePadding";
+import { Spacing } from "~/components/Spacing";
 
 export const Component = () => {
   const navigate = useNavigate();
@@ -15,29 +17,28 @@ export const Component = () => {
     }
   }, [navigate]);
   return (
-    <>
-      <button onClick={() => (location.href = `${BASE_URL}/login`)}>
-        <div css={loginCss}>
-          <img
-            src={spotifyLogo}
-            css={css({
-              height: 35,
-              justifyContent: "center",
-            })}
-          />
-          <div css={textCss}>Spotify 계정으로 로그인</div>
-        </div>
+    <MobilePadding>
+      <Spacing size={500} />
+      <button
+        onClick={() => (location.href = `${BASE_URL}/login`)}
+        css={loginCss}
+      >
+        <img
+          src={spotifyLogo}
+          css={css({
+            height: 35,
+            justifyContent: "center",
+            paddingRight: 10,
+          })}
+        />
+        <div css={textCss}>Spotify 계정으로 로그인</div>
       </button>
-    </>
+    </MobilePadding>
   );
 };
 
 const loginCss = css({
-  position: "absolute",
-  left: "50%",
-  top: "70%",
-  transform: "translate(-50%)",
-  width: "280px",
+  width: "100%",
   height: "50px",
   background: "#1ED760",
   display: "flex",
@@ -54,8 +55,7 @@ const textCss = css({
   fontStyle: "normal",
   fontWeight: "450",
   fontSize: 17,
-  marginLeft: 5,
   justifyContent: "center",
-  color: "#ffffff",
+  color: "#000",
   height: "100%",
 });

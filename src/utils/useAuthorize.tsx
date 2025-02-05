@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useUserInfoContext } from "./userInfoContext";
-import { safeLocalStorage } from "@toss/storage";
 
 const useAuthorize = () => {
   const navigate = useNavigate();
@@ -10,18 +9,18 @@ const useAuthorize = () => {
 
   const saveSession = (id: string, profileImage?: string) => {
     setUserInfo({ id: Number(id), profileImage });
-    safeLocalStorage.set("user_id", id);
+    localStorage.setItem("user_id", id);
     if (profileImage) {
-      safeLocalStorage.set("user_img_url", profileImage);
+      localStorage.setItem("user_img_url", profileImage);
     }
   };
 
   useEffect(() => {
     const queryId = searchParams.get("user_id") ?? undefined;
     const queryProfileImage = searchParams.get("user_img_url") ?? undefined;
-    const storageId = safeLocalStorage.get("user_id");
+    const storageId = localStorage.getItem("user_id");
     const storageProfileImage =
-      safeLocalStorage.get("user_img_url") ?? undefined;
+      localStorage.getItem("user_img_url") ?? undefined;
 
     // 1. context에 유저정보 있으면 return
     if (userInfo.id != null) return;

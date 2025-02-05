@@ -1,6 +1,6 @@
 import { css } from "@emotion/react";
-import AddIcon from "~/assets/svg/PlusCircle.svg";
-import AddedIcon from "~/assets/svg/CheckCircle.svg";
+import { CheckCircle } from "~/assets/svg/CheckCircle";
+import { PlusCircle } from "~/assets/svg/PlusCircle";
 import { Spacing } from "~/components/Spacing";
 
 export const TrackItem = ({
@@ -9,12 +9,14 @@ export const TrackItem = ({
   artistName,
   onSelectChange,
   selected,
+  rightAddonColor,
 }: {
-  trackImage: string;
+  trackImage?: string;
   trackName: string;
   artistName: string;
   onSelectChange: () => void;
   selected: boolean;
+  rightAddonColor?: string;
 }) => {
   return (
     <>
@@ -23,23 +25,40 @@ export const TrackItem = ({
         css={css({
           display: "flex",
           justifyContent: "space-between",
+          alignItems: "center",
           width: "100%",
+          height: 60,
         })}
       >
-        <div css={css({ display: "flex" })}>
-          <img src={trackImage} width="60" />
+        <div css={css({ display: "flex", alignItems: "center" })}>
+          {trackImage && (
+            <img
+              src={trackImage}
+              width={60}
+              height={60}
+              css={css({ marginRight: 12 })}
+            />
+          )}
           <div
             css={css({
               display: "flex",
               flexDirection: "column",
-              padding: "5px 15px",
             })}
           >
             <span>{trackName}</span>
             <span css={css({ fontSize: 12 })}>{artistName}</span>
           </div>
         </div>
-        <img src={selected ? AddedIcon : AddIcon} onClick={onSelectChange} />
+        <button
+          css={css({ flexShrink: 0, marginLeft: 6 })}
+          onClick={onSelectChange}
+        >
+          {selected ? (
+            <CheckCircle color={rightAddonColor} />
+          ) : (
+            <PlusCircle color={rightAddonColor} />
+          )}
+        </button>
       </div>
       <Spacing size={10} />
     </>

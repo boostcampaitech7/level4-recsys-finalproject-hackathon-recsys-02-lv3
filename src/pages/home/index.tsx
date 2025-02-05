@@ -1,31 +1,42 @@
 import { css } from "@emotion/react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { AuthGuard } from "~/components/AuthGuard";
-import FileUploadButton from "~/components/FileUploadButton";
+import { Button } from "~/components/Button";
+import { MobilePadding } from "~/components/MobilePadding";
 import { ProfileImage } from "~/components/ProfileImage";
 import { Spacing } from "~/components/Spacing";
-import { playlistQuery, postOcrImageMutation } from "~/remotes";
+import { Title } from "~/components/Title";
+import { playlistQuery } from "~/remotes";
 import { useUserId } from "~/utils/userInfoContext";
 
 const HomePage = () => {
   const navigate = useNavigate();
   const userId = useUserId();
   const { data } = useQuery(playlistQuery(userId));
-  const { mutateAsync: mutateOcrImage } = useMutation(postOcrImageMutation);
 
   return (
     <>
-      <div>
-        <Spacing size={10} />
-        <ProfileImage />
-      </div>
-      <Spacing size={10} />
+      <Spacing size={40} />
+      <MobilePadding>
+        <div
+          css={css({
+            display: "flex",
+            width: "100%",
+            overflowX: "auto",
+          })}
+        >
+          <ProfileImage />
+          <Title>자영업자를 위한 플레이리스트 추천</Title>
+        </div>
+
+        <Spacing size={40} />
+        <Title>플레이리스트를 선택해주세요</Title>
+        <Spacing size={20} />
+      </MobilePadding>
       <div
         css={css({
           display: "flex",
-          marginLeft: 15,
-          gap: 30,
           width: "100%",
           overflowX: "auto",
         })}
@@ -36,46 +47,54 @@ const HomePage = () => {
             onClick={() =>
               navigate(`/playlist/${v.playlist_id}?name=${v.playlist_name}`)
             }
+            css={css({ marginLeft: 20, "&:last-of-type": { marginRight: 20 } })}
           >
-            <div
-              css={css({
-                width: "150px",
-                height: "150px",
-                overflow: "hidden",
-                display: "flex",
-                cursor: "pointer",
-                alignItems: "center",
-                justifyContent: "center",
-              })}
-            >
-              <img
-                src={v.playlist_img_url}
-                css={css({
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  objectPosition: "center",
-                })}
-              />
-            </div>
+            <SquareImage size={150} imageUrl={v.playlist_img_url} />
             {v.playlist_name}
           </div>
         ))}
       </div>
-      <br />
-      <div>
-        <FileUploadButton
-          onFileSelect={async (file) => {
-            const ocrResult = await mutateOcrImage({
-              user_id: userId,
-              image: file,
-            });
-            console.log(ocrResult);
-            navigate(`/ocr?data=${encodeURIComponent(ocrResult)}`);
-          }}
-        />
-      </div>
+      <Spacing size={80} />
+      <MobilePadding>
+        <Title>플레이리스트가 없다면</Title>
+        <Spacing size={20} />
+        <Button backgroundColor="#5b52ff" onClick={() => navigate("/ocr")}>
+          사진으로 외부 플레이리스트 불러오기
+        </Button>
+      </MobilePadding>
     </>
+  );
+};
+
+const SquareImage = ({
+  size,
+  imageUrl,
+}: {
+  size: number;
+  imageUrl?: string;
+}) => {
+  return (
+    <div
+      css={css({
+        width: size,
+        height: size,
+        overflow: "hidden",
+        display: "flex",
+        cursor: "pointer",
+        alignItems: "center",
+        justifyContent: "center",
+      })}
+    >
+      <img
+        src={imageUrl}
+        css={css({
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          objectPosition: "center",
+        })}
+      />
+    </div>
   );
 };
 

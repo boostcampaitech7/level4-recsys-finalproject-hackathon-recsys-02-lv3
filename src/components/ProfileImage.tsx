@@ -5,13 +5,12 @@ import { css } from "@emotion/react";
 export const ProfileImage = () => {
   const { userInfo } = useUserInfoContext("ProfileImage");
   const profileImage = userInfo.profileImage ?? defaultImage;
+
   return (
     <div
       css={css({
-        marginLeft: 10,
-        marginBottom: 10,
-        width: 80,
-        height: 80,
+        width: 60,
+        height: 60,
         overflow: "hidden",
       })}
     >

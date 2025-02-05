@@ -7,11 +7,13 @@ import { useState } from "react";
 import { css } from "@emotion/react";
 import { TrackItem } from "~/components/TrackItem";
 import { FullScreenLoader } from "~/components/FullScreenLoader";
-import { Button } from "~/components/Button";
+import { Button, FixedButton } from "~/components/Button";
 import { Spacing } from "~/components/Spacing";
 import { RefreshButton } from "~/components/RefreshButton";
-import { assert } from "@toss/assert";
+import { invariant } from "es-toolkit";
 import { PostTrackRequest } from "~/remotes/dio";
+import { MobilePadding } from "~/components/MobilePadding";
+import { Title } from "~/components/Title";
 
 const PlaylistPage = () => {
   const navigate = useNavigate();
@@ -19,8 +21,8 @@ const PlaylistPage = () => {
   const [searchParams] = useSearchParams();
   const playlistName = searchParams.get("name");
 
-  assert(playlistId);
-  assert(playlistName);
+  invariant(playlistId, "undefined playlistId");
+  invariant(playlistName, "undefined playlistName");
 
   const id = useUserId();
   const [selected, setSelected] = useState<string[]>([]);
@@ -70,31 +72,41 @@ const PlaylistPage = () => {
   };
 
   return (
-    <>
-      <Spacing size={15} />
-      <div css={css({ padding: "0px 24px" })}>
-        <RefreshButton
-          onClick={handleNextPage}
-          disabled={(currentPage + 1) * itemsPerPage >= data.length}
-          style={{ cursor: "pointer" }}
-        >
-          새로운 추천 결과 받기
-        </RefreshButton>
-        {currentTrack?.map((v) => (
-          <TrackItem
-            key={v.track_id}
-            trackImage={v.track_img_url}
-            trackName={v.track_name}
-            artistName={v.artists
-              .map(({ artist_name }) => artist_name)
-              .join(", ")}
-            onSelectChange={() => handleSelectChange(v.track_id)}
-            selected={selected.includes(v.track_id)}
-          />
-        ))}
+    <MobilePadding>
+      <Spacing size={40} />
+      <Title>
+        선택한 플레이리스트와
+        <br />
+        어울리는 트랙들이에요
+      </Title>
+      <Spacing size={16} />
+      <div css={css({ color: "#cacaca" })}>
+        '플레이리스트 완성하기'를 누르면
+        <br />내 스포티파이 플레이리스트에 트랙이 추가돼요
       </div>
-      <Button
-        css={completeCSS}
+      <Spacing size={40} />
+      <RefreshButton
+        css={css({ marginLeft: "auto" })}
+        onClick={handleNextPage}
+        disabled={(currentPage + 1) * itemsPerPage >= data.length}
+      >
+        새로운 추천 결과 받기
+      </RefreshButton>
+      <Spacing size={10} />
+      {currentTrack?.map((v) => (
+        <TrackItem
+          key={v.track_id}
+          trackImage={v.track_img_url}
+          trackName={v.track_name}
+          artistName={v.artists
+            .map(({ artist_name }) => artist_name)
+            .join(", ")}
+          onSelectChange={() => handleSelectChange(v.track_id)}
+          selected={selected.includes(v.track_id)}
+        />
+      ))}
+      <Spacing size={20} />
+      <FixedButton
         onClick={async () => {
           await mutateAsync({
             items: getPayload(),
@@ -103,9 +115,9 @@ const PlaylistPage = () => {
         }}
       >
         플레이리스트 완성하기
-      </Button>
+      </FixedButton>
       <Spacing size={20} />
-    </>
+    </MobilePadding>
   );
 };
 
@@ -114,13 +126,3 @@ export const SpotifyPlaylist = () => (
     <PlaylistPage />
   </AuthGuard>
 );
-
-const completeCSS = css({
-  width: "calc(100% - 60px)" /* 양쪽에 20px씩 여백 */,
-  maxWidth: 600,
-  padding: "15px",
-  margin: "0 auto",
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
-});

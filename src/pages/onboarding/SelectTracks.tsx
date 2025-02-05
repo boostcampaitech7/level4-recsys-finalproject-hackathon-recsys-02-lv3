@@ -2,20 +2,33 @@ import { OnboardingSelectItemType, TrackOnboardingSchema } from "~/remotes/dio";
 import { SelectTrackType } from ".";
 import { ComponentProps, useState } from "react";
 import { css } from "@emotion/react";
-import { Button } from "~/components/Button";
+import { FixedButton } from "~/components/Button";
+import { Spacing } from "~/components/Spacing";
+import { MobilePadding } from "~/components/MobilePadding";
+import { Title } from "~/components/Title";
+import { useLoading } from "~/utils/useLoading";
 
 export const SelectTracks = ({
   trackList,
   onSubmit,
 }: {
   trackList: SelectTrackType;
-  onSubmit: (value: OnboardingSelectItemType[]) => void;
+  onSubmit: (value: OnboardingSelectItemType[]) => Promise<void>;
 }) => {
+  const [isLoading, startLoading] = useLoading();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selected, setSelected] = useState<OnboardingSelectItemType[]>([]);
   const [track1, track2] = trackList;
+
   return (
-    <>
+    <MobilePadding>
+      <Spacing size={24} />
+      <Title>
+        취향과 더 가까운
+        <br />
+        음악을 선택해주세요
+      </Title>
+      <Spacing size={40} />
       <TracksPair
         tracksPair={[track1[currentIndex], track2[currentIndex]]}
         onSelect={(concatValue: OnboardingSelectItemType[]) => {
@@ -23,15 +36,17 @@ export const SelectTracks = ({
           if (currentIndex < 9) setCurrentIndex(currentIndex + 1);
         }}
       />
+      <Spacing size={40} />
       {currentIndex === 9 && (
-        <Button
-          onClick={() => onSubmit(selected)}
+        <FixedButton
+          onClick={() => startLoading(onSubmit(selected))}
           disabled={selected.length < 20}
+          loading={isLoading}
         >
           가게 무드 완성하기
-        </Button>
+        </FixedButton>
       )}
-    </>
+    </MobilePadding>
   );
 };
 
@@ -77,19 +92,19 @@ const TrackContainer = ({
           width: "100%",
           position: "absolute",
           objectFit: "cover",
-          filter: "blur(2px)",
         })}
       />
       <div css={trackInfoStyle}>
         <span>{track.track_name}</span>
         <span>{track.artists.map((v) => v.artist_name).join(", ")}</span>
+        <span>{`#${track.tags}`}</span>
       </div>
     </div>
   );
 };
 
 const trackImageStyle = css({
-  height: 350,
+  height: 250,
   width: "100%",
   display: "flex",
   flexDirection: "column",

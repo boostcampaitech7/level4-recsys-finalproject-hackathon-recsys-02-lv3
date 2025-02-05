@@ -1,12 +1,16 @@
 import { css } from "@emotion/react";
-import { ChangeEvent } from "react";
+import { ChangeEvent, ComponentProps, useRef } from "react";
 import UploadIcon from "~/assets/svg/upload-icon.svg";
+import { Button, FixedButton } from "./Button";
 
 const FileUploadButton = ({
   onFileSelect,
+  ...props
 }: {
   onFileSelect: (file: File) => void;
-}) => {
+} & Omit<ComponentProps<typeof Button>, "onClick">) => {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const image = event.target.files?.[0];
     if (image) {
@@ -18,53 +22,52 @@ const FileUploadButton = ({
     <label css={uploadButtonStyle}>
       <input
         type="file"
+        ref={fileInputRef}
         onChange={handleFileChange}
-        style={{ display: "none" }}
+        css={css({ display: "none" })}
+        accept="image/*"
       />
-      <div className="upload-container">
-        <img src={UploadIcon} alt="Upload Icon" className="upload-icon" />
-        <div
-          css={css({
-            display: "flex",
-            textAlign: "center",
-            flexDirection: "column",
-            alignItems: "center",
-            marginLeft: 15,
-          })}
-        >
-          <span className="upload-text">
-            사진으로 외부 플레이리스트 불러오기
-          </span>
-          <span className="upload-subtext">Upstage OCR API</span>
-        </div>
-      </div>
+      <FixedButton
+        backgroundColor="#5b52ff"
+        leftAddon={<img src={UploadIcon} />}
+        onClick={(e) => {
+          e.stopPropagation();
+          fileInputRef.current?.click(); // input을 강제로 클릭
+        }}
+        bottomText={
+          <>
+            powered by
+            <span css={css({ color: "#9e77ed", marginLeft: 8 })}>
+              Upstage OCR API
+            </span>
+          </>
+        }
+        {...props}
+      >
+        이미지 업로드
+      </FixedButton>
     </label>
   );
 };
 
 const uploadButtonStyle = css`
-  display: inline-block;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   cursor: pointer;
 
   .upload-container {
+    width: 100%;
     display: flex;
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+    gap: 10px;
     align-items: center;
-    justify-content: flex-start;
-    width: 310px;
+    justify-content: center;
     padding: 13px 10px;
-    border: 2px solid #00c853;
+    //border: 2px solid #00c853;
     border-radius: 10px;
-    background-color: #fff;
+    background-color: #5b52ff;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     transition: all 0.3s ease-in-out;
-
-    &:hover {
-      background-color: #f0f0f0;
-    }
   }
 
   .upload-icon {
@@ -80,14 +83,8 @@ const uploadButtonStyle = css`
 
   .upload-text {
     font-size: 15px;
-    font-weight: bold;
+    font-weight: 600;
     padding-bottom: 1px;
-    color: #000;
-  }
-
-  .upload-subtext {
-    font-size: 10px;
-    color: #777;
   }
 `;
 

@@ -1,24 +1,21 @@
 import { css } from "@emotion/react";
-import { rgba } from "emotion-rgba";
 import { ComponentProps } from "react";
 
-// https://emotion.sh/docs/css-prop#use-the-css-prop
 const tagStyle = (isSelected: boolean) =>
   css({
-    width: "fit-content",
-    margin: "0 auto",
-    padding: 10,
+    padding: "0px 10px",
     height: 40,
-    display: "flex",
+    display: "inline-block",
     alignItems: "center",
     justifyContent: "center",
     fontWeight: 400,
     fontSize: 15,
-    border: "1px solid",
-    borderRadius: 10,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#1ED760",
-    backgroundColor: isSelected ? "#1ED760" : rgba("#C3FFC3", 0.75),
+    backgroundColor: isSelected ? "#e5e5e5" : "#3d3d3d",
+    marginRight: 6,
+    marginBottom: 8,
+    color: isSelected ? "#2c2c2c" : "#ededed",
   });
 
 export const Tag = ({

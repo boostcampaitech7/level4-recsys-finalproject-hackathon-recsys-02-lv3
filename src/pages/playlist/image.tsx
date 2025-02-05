@@ -11,6 +11,7 @@ import { Button } from "~/components/Button";
 import { Spacing } from "~/components/Spacing";
 import { RefreshButton } from "~/components/RefreshButton";
 import { PostTrackRequest } from "~/remotes/dio";
+import { MobilePadding } from "~/components/MobilePadding";
 
 const PlaylistPage = () => {
   const navigate = useNavigate();
@@ -58,39 +59,38 @@ const PlaylistPage = () => {
   };
 
   return (
-    <>
+    <MobilePadding>
       <Spacing size={15} />
-      <div css={css({ padding: "0px 24px" })}>
-        <RefreshButton
-          onClick={handleNextPage}
-          disabled={(currentPage + 1) * itemsPerPage >= data.length}
-          style={{ cursor: "pointer" }}
-        >
-          새로운 추천 결과 받기
-        </RefreshButton>
-        {currentTrack?.map((v) => (
-          <TrackItem
-            key={v.track_id}
-            trackImage={v.track_img_url}
-            trackName={v.track_name}
-            artistName={v.artists
-              .map(({ artist_name }) => artist_name)
-              .join(", ")}
-            onSelectChange={() => handleSelectChange(v.track_id)}
-            selected={selected.includes(v.track_id)}
-          />
-        ))}
-      </div>
+      <RefreshButton
+        onClick={handleNextPage}
+        disabled={(currentPage + 1) * itemsPerPage >= data.length}
+        style={{ cursor: "pointer" }}
+      >
+        새로운 추천 결과 받기
+      </RefreshButton>
+      {currentTrack?.map((v) => (
+        <TrackItem
+          key={v.track_id}
+          trackImage={v.track_img_url}
+          trackName={v.track_name}
+          artistName={v.artists
+            .map(({ artist_name }) => artist_name)
+            .join(", ")}
+          onSelectChange={() => handleSelectChange(v.track_id)}
+          selected={selected.includes(v.track_id)}
+        />
+      ))}
       <Button
         css={completeCSS}
         onClick={async () => {
           navigate("/home");
         }}
+        backgroundColor="#5b52ff"
       >
         플레이리스트 완성하기
       </Button>
       <Spacing size={20} />
-    </>
+    </MobilePadding>
   );
 };
 

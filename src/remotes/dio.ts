@@ -28,7 +28,7 @@ export interface TrackSchema {
 export type PostTrackRequest = Pick<TrackSchema, "track_name" | "artists">;
 
 export interface TrackOnboardingSchema extends TrackSchema {
-  tags: string[];
+  tags: number[];
 }
 
 export interface OnboardingSelectItemType {

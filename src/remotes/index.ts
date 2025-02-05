@@ -38,11 +38,11 @@ export const playlistTracksQuery = (
       ),
   });
 
-const POST_ONBOARDING_URL = `/onboarding`;
-export const postOnboardingMutation = mutationOptions({
-  mutationFn: async (payload: { user_id: number; tags: string[] }) =>
-    await api.post(POST_ONBOARDING_URL, payload),
-});
+// const POST_ONBOARDING_URL = `/onboarding`;
+// export const postOnboardingMutation = mutationOptions({
+//   mutationFn: async (payload: { user_id: number; tags: string[] }) =>
+//     await api.post(POST_ONBOARDING_URL, payload),
+// });
 
 const POST_TRACK_URL = (playlistId: string, id: number) =>
   `/playlists/${playlistId}/tracks?user_id=${id}`;
@@ -52,21 +52,21 @@ export const postTrackMutation = (playlistId: string, id: number) =>
       await api.post(POST_TRACK_URL(playlistId, id), payload),
   });
 
-const POST_TEST_ONBOARDING_URL = `/test/onboarding`;
-export const postTestOnboardingMutation = mutationOptions({
-  mutationFn: async (payload: { user_id: number; tags: string[] }) =>
+const POST_ONBOARDING_URL = `/onboarding`;
+export const postOnboardingMutation = mutationOptions({
+  mutationFn: async (payload: { user_id: number; tags: number[] }) =>
     await api.post<{
       items1: TrackOnboardingSchema[];
       items2: TrackOnboardingSchema[];
-    }>(POST_TEST_ONBOARDING_URL, payload),
+    }>(POST_ONBOARDING_URL, payload),
 });
 
-const POST_TEST_ONBOARDING_SELECT_URL = `/test/onboarding/select`;
-export const postTestOnboardingSelectMutation = mutationOptions({
+const POST_ONBOARDING_SELECT_URL = `/onboarding/select`;
+export const postOnboardingSelectMutation = mutationOptions({
   mutationFn: async (payload: {
     user_id: number;
     items: OnboardingSelectItemType[];
-  }) => await api.post(POST_TEST_ONBOARDING_SELECT_URL, payload),
+  }) => await api.post(POST_ONBOARDING_SELECT_URL, payload),
 });
 
 const POST_OCR_IMAGE_URL = `/playlist/image`;
