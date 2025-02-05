@@ -1,7 +1,7 @@
 train:
   batch_size: 4096
   bpr_batch_size: 2048
-test: True
+test: False
 finetune: False
 device: 'cuda'
 sample_mode: 'new'
@@ -17,8 +17,6 @@ decay: 1e-4
 A_n_fold: 100
 A_split: False
 topks: [10,20]
-num_users: 14940
-num_items: 178592
 
 path:
   CODE: 'code'

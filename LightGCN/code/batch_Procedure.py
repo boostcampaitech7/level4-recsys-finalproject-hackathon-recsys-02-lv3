@@ -1,6 +1,3 @@
-# 1. MongoDB 연결해 uid, pos, neg fetch
-# 2. KNN Logic ~.~
-# 3. fetch했던 uid / user_emb 반환
 import argparse
 from omegaconf import OmegaConf
 from pymongo import MongoClient
@@ -36,7 +33,7 @@ def get_inter_data(id, pw)-> list:
     batch = []
 
     for group in grouped_results:
-        uid, batch_pos, batch_neg = group['_id'], [], []
+        uid, batch_pos = group['_id'], []
         for r in group['records']:
             try:
                 track_id = int(gcn_id.loc[gcn_id['track_id']==r['track_id'], 'gcn_track_id'])
@@ -61,12 +58,12 @@ def generate_temporary_user(dataset, model, batch_data, alpha=0.2) -> list:
         sim = torch.matmul(e_users, user_emb) / \
             (torch.norm(e_users, dim=1) * torch.norm(user_emb))
         sim_user = torch.topk(sim, k=1, largest=True)[1]
-        batch_user['u_emb'] = alpha * user_emb + (1-alpha) * e_users.detach()[sim_user].squeeze()
+        batch_user['u_emb'] = alpha * e_users.detach()[sim_user].squeeze() + (1-alpha) * user_emb
         batch_user.pop('batch_pos', None)
     return batch_data
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='ID와 PW를 입력받는 예제')
+    parser = argparse.ArgumentParser()
     parser.add_argument('--id', type=str, required=True)
     parser.add_argument('--pw', type=str, required=True)
     args = parser.parse_args()
