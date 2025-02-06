@@ -1,7 +1,12 @@
 train:
   batch_size: 4096
   bpr_batch_size: 2048
-test: False
+test: True
+finetune: False
+device: 'cpu'
+sample_mode: 'new'
+tensorboard: True
+
 latent_dim_rec: 64
 n_layers: 3
 epochs: 1000
@@ -11,10 +16,9 @@ lr: 0.001
 decay: 1e-4
 A_n_fold: 100
 A_split: False
-topks: [20,10]
-finetune: False
-device: 'cuda'
-tensorboard: True
+topks: [10,20]
+num_users: 14940
+num_items: 178592
 
 path:
   CODE: 'code'
