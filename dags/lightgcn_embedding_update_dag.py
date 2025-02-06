@@ -53,7 +53,7 @@ def get_user_item_embedding(**context):
     config = OmegaConf.load(config_path)
     print(f"config: {OmegaConf.to_yaml(config)}")
 
-    weight_file_dir = os.path.join(Directory.LIGHTGCN_DIR, f'checkpoints/batch_model.pth.tar')
+    weight_file_dir = os.path.join(Directory.LIGHTGCN_DIR, f'checkpoints/best_model.pth')
     dataset = Loader(config=config, path=os.path.join(Directory.LIGHTGCN_DIR, config.path.DATA))
     model = LightGCN(config, dataset)
     checkpoint = torch.load(weight_file_dir, map_location=torch.device('cpu'))
