@@ -15,7 +15,7 @@ export const TrackItem = ({
   trackImage?: string;
   trackName: string;
   artistName: string;
-  description: string;
+  description?: string;
   onSelectChange: () => void;
   selected: boolean;
   rightAddonColor?: string;
@@ -48,8 +48,16 @@ export const TrackItem = ({
             })}
           >
             <span>{trackName}</span>
-            <span css={css({ fontSize: 12 })}>{artistName}</span>
-            <span css={css({ color: "#D82929" })}>{description}</span>
+            <span css={css({ fontSize: 11 })}>{artistName}</span>
+            <span
+              css={css({
+                color: "#1ED760",
+                fontSize: 12,
+                fontWeight: 470,
+              })}
+            >
+              {description}
+            </span>
           </div>
         </div>
         <button
