@@ -1,22 +1,23 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUserId } from "~/utils/userInfoContext";
-import { AuthGuard } from "~/components/AuthGuard";
 import { useMutation } from "@tanstack/react-query";
 import {
   postOnboardingMutation,
   postOnboardingSelectMutation,
+  userEmbeddingQuery,
 } from "~/remotes";
 import { SelectTags } from "./SelectTags";
 import { SelectTracks } from "./SelectTracks";
 import { OnboardingSelectItemType, TrackOnboardingSchema } from "~/remotes/dio";
+import { client } from "~/libs/react-query";
 
 export type SelectTrackType = [
   TrackOnboardingSchema[],
-  TrackOnboardingSchema[],
+  TrackOnboardingSchema[]
 ];
 
-const OnBoardingPage = () => {
+export const Component = () => {
   const navigate = useNavigate();
   const id = useUserId();
 
@@ -37,6 +38,7 @@ const OnBoardingPage = () => {
     selectedTracks: OnboardingSelectItemType[]
   ) => {
     await mutateSelectTrack({ user_id: id, items: selectedTracks });
+    await client.invalidateQueries(userEmbeddingQuery(id).queryKey);
     navigate("/home");
   };
 
@@ -49,9 +51,3 @@ const OnBoardingPage = () => {
     </>
   );
 };
-
-export const Component = () => (
-  <AuthGuard>
-    <OnBoardingPage />
-  </AuthGuard>
-);

@@ -1,8 +1,8 @@
 import { css } from "@emotion/react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { AuthGuard } from "~/components/AuthGuard";
 import { Button } from "~/components/Button";
+import { Description } from "~/components/Description";
 import { MobilePadding } from "~/components/MobilePadding";
 import { ProfileImage } from "~/components/ProfileImage";
 import { Spacing } from "~/components/Spacing";
@@ -10,7 +10,7 @@ import { Title } from "~/components/Title";
 import { playlistQuery } from "~/remotes";
 import { useUserId } from "~/utils/userInfoContext";
 
-const HomePage = () => {
+export const Component = () => {
   const navigate = useNavigate();
   const userId = useUserId();
   const { data } = useQuery(playlistQuery(userId));
@@ -24,14 +24,15 @@ const HomePage = () => {
             display: "flex",
             width: "100%",
             overflowX: "auto",
+            alignItems: "center",
+            gap: 18,
           })}
         >
           <ProfileImage />
           <Title>자영업자를 위한 플레이리스트 추천</Title>
         </div>
-
         <Spacing size={40} />
-        <Title>플레이리스트를 선택해주세요</Title>
+        <Description>플레이리스트를 선택해주세요</Description>
         <Spacing size={20} />
       </MobilePadding>
       <div
@@ -97,9 +98,3 @@ const SquareImage = ({
     </div>
   );
 };
-
-export const Component = () => (
-  <AuthGuard>
-    <HomePage />
-  </AuthGuard>
-);

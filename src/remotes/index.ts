@@ -38,12 +38,6 @@ export const playlistTracksQuery = (
       ),
   });
 
-// const POST_ONBOARDING_URL = `/onboarding`;
-// export const postOnboardingMutation = mutationOptions({
-//   mutationFn: async (payload: { user_id: number; tags: string[] }) =>
-//     await api.post(POST_ONBOARDING_URL, payload),
-// });
-
 const POST_TRACK_URL = (playlistId: string, id: number) =>
   `/playlists/${playlistId}/tracks?user_id=${id}`;
 export const postTrackMutation = (playlistId: string, id: number) =>
@@ -73,10 +67,8 @@ const POST_OCR_IMAGE_URL = `/playlist/image`;
 export const postOcrImageMutation = mutationOptions({
   mutationFn: async (payload: { user_id: number; image: File }) => {
     const formData = new FormData();
-
     formData.append("user_id", String(payload.user_id));
     formData.append("image", payload.image);
-
     try {
       const response = await api.post<PostOcrImageResponse>(
         POST_OCR_IMAGE_URL,
@@ -98,5 +90,20 @@ export const postOcrImageMutation = mutationOptions({
 const POST_OCR_TRACK_URL = `/playlist/image/tracks`;
 export const postOcrTrackMutation = mutationOptions({
   mutationFn: async (payload: { user_id: number; items: OcrTrackRequest[] }) =>
-    await api.post(POST_OCR_TRACK_URL, payload),
+    await api.post<TrackSchema[]>(POST_OCR_TRACK_URL, payload),
 });
+
+const POST_OCR_PLAYLIST_URL = (id: number) => `/playlist/create/?user_id=${id}`;
+export const postOcrPlaylistMutation = (id: number) =>
+  mutationOptions({
+    mutationFn: async (payload: { items: PostTrackRequest[] }) =>
+      await api.post(POST_OCR_PLAYLIST_URL(id), payload),
+  });
+
+const USER_EMBEDDING_URL = (userId: number) => `/user/${userId}/embedding`;
+export const userEmbeddingQuery = (userId: number) =>
+  queryOptions({
+    queryKey: [USER_EMBEDDING_URL(userId)],
+    queryFn: async () =>
+      await api.get<{ exist: boolean }>(USER_EMBEDDING_URL(userId)),
+  });

@@ -1,14 +1,36 @@
-import { useParams } from "react-router-dom";
-import { SpotifyPlaylist } from "~/pages/playlist/spotify";
-import { OcrPlaylist } from "~/pages/playlist/image";
-import { AuthGuard } from "~/components/AuthGuard";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { invariant } from "es-toolkit";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { CandidatesPageContent } from "~/components/CandidatesPageContent";
+import { FullScreenLoader } from "~/components/FullScreenLoader";
+import { playlistTracksQuery, postTrackMutation } from "~/remotes";
+import { PostTrackRequest } from "~/remotes/dio";
+import { useUserId } from "~/utils/userInfoContext";
 
-const PlaylistPage = () => {
+export const Component = () => {
+  const navigate = useNavigate();
   const { playlistId } = useParams<{ playlistId: string }>();
-  return <>{playlistId !== "image" ? <SpotifyPlaylist /> : <OcrPlaylist />}</>;
+  const [searchParams] = useSearchParams();
+  const playlistName = searchParams.get("name");
+
+  invariant(playlistId, "undefined playlistId");
+  invariant(playlistName, "undefined playlistName");
+
+  const id = useUserId();
+  const { data, isLoading } = useQuery(
+    playlistTracksQuery(playlistId, id, playlistName)
+  );
+
+  const { mutateAsync } = useMutation(postTrackMutation(playlistId, id));
+  const handleSubmit = async (payload: PostTrackRequest[]) => {
+    await mutateAsync({
+      items: payload,
+    });
+    navigate("/home");
+  };
+
+  if (isLoading) {
+    return <FullScreenLoader />;
+  }
+  return <CandidatesPageContent data={data ?? []} onSubmit={handleSubmit} />;
 };
-export const Component = () => (
-  <AuthGuard>
-    <PlaylistPage />
-  </AuthGuard>
-);

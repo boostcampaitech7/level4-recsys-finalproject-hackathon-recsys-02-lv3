@@ -16,6 +16,7 @@ export const Component = () => {
       navigate("/home");
     }
   }, [navigate]);
+
   return (
     <MobilePadding>
       <Spacing size={500} />
