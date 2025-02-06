@@ -71,6 +71,7 @@ export const CandidatesPageContent = ({
           artistName={v.artists
             .map(({ artist_name }) => artist_name)
             .join(", ")}
+          description={v.description}
           onSelectChange={() => handleSelectChange(v.track_id)}
           selected={selected.includes(v.track_id)}
         />
