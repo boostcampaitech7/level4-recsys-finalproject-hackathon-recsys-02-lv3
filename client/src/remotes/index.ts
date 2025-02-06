@@ -94,7 +94,7 @@ export const postOcrTrackMutation = mutationOptions({
 });
 
 const POST_OCR_PLAYLIST_URL = (id: number) =>
-  `/api/playlist/create/?user_id=${id}`;
+  `/api/playlist/create?user_id=${id}`;
 export const postOcrPlaylistMutation = (id: number) =>
   mutationOptions({
     mutationFn: async (payload: { items: PostTrackRequest[] }) =>

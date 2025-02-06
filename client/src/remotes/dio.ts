@@ -20,6 +20,7 @@ export interface TrackSchema {
   track_name: string;
   track_img_url: string;
   artists: Artist[];
+  description: string;
 }
 
 /**
