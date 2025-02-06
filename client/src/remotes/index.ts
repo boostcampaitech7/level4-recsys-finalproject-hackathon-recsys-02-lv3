@@ -11,7 +11,7 @@ import {
   TrackSchema,
 } from "./dio";
 
-const PLAYLIST_URL = (id: number) => `/users/${id}/playlists`;
+const PLAYLIST_URL = (id: number) => `/api/users/${id}/playlists`;
 export const playlistQuery = (id: number) =>
   queryOptions({
     queryKey: [PLAYLIST_URL(id)],
@@ -24,7 +24,7 @@ const PLAYLIST_TRACKS_URL = (
   id: number,
   playlistName: string
 ) =>
-  `/playlists/${playlistId}/tracks?user_id=${id}&playlist_name=${playlistName}`;
+  `/api/playlists/${playlistId}/tracks?user_id=${id}&playlist_name=${playlistName}`;
 export const playlistTracksQuery = (
   playlistId: string,
   id: number,
@@ -39,14 +39,14 @@ export const playlistTracksQuery = (
   });
 
 const POST_TRACK_URL = (playlistId: string, id: number) =>
-  `/playlists/${playlistId}/tracks?user_id=${id}`;
+  `/api/playlists/${playlistId}/tracks?user_id=${id}`;
 export const postTrackMutation = (playlistId: string, id: number) =>
   mutationOptions({
     mutationFn: async (payload: { items: PostTrackRequest[] }) =>
       await api.post(POST_TRACK_URL(playlistId, id), payload),
   });
 
-const POST_ONBOARDING_URL = `/onboarding`;
+const POST_ONBOARDING_URL = `/api/onboarding`;
 export const postOnboardingMutation = mutationOptions({
   mutationFn: async (payload: { user_id: number; tags: number[] }) =>
     await api.post<{
@@ -55,7 +55,7 @@ export const postOnboardingMutation = mutationOptions({
     }>(POST_ONBOARDING_URL, payload),
 });
 
-const POST_ONBOARDING_SELECT_URL = `/onboarding/select`;
+const POST_ONBOARDING_SELECT_URL = `/api/onboarding/select`;
 export const postOnboardingSelectMutation = mutationOptions({
   mutationFn: async (payload: {
     user_id: number;
@@ -63,7 +63,7 @@ export const postOnboardingSelectMutation = mutationOptions({
   }) => await api.post(POST_ONBOARDING_SELECT_URL, payload),
 });
 
-const POST_OCR_IMAGE_URL = `/playlist/image`;
+const POST_OCR_IMAGE_URL = `/api/playlist/image`;
 export const postOcrImageMutation = mutationOptions({
   mutationFn: async (payload: { user_id: number; image: File }) => {
     const formData = new FormData();
@@ -87,20 +87,21 @@ export const postOcrImageMutation = mutationOptions({
   },
 });
 
-const POST_OCR_TRACK_URL = `/playlist/image/tracks`;
+const POST_OCR_TRACK_URL = `/api/playlist/image/tracks`;
 export const postOcrTrackMutation = mutationOptions({
   mutationFn: async (payload: { user_id: number; items: OcrTrackRequest[] }) =>
     await api.post<TrackSchema[]>(POST_OCR_TRACK_URL, payload),
 });
 
-const POST_OCR_PLAYLIST_URL = (id: number) => `/playlist/create/?user_id=${id}`;
+const POST_OCR_PLAYLIST_URL = (id: number) =>
+  `/api/playlist/create/?user_id=${id}`;
 export const postOcrPlaylistMutation = (id: number) =>
   mutationOptions({
     mutationFn: async (payload: { items: PostTrackRequest[] }) =>
       await api.post(POST_OCR_PLAYLIST_URL(id), payload),
   });
 
-const USER_EMBEDDING_URL = (userId: number) => `/user/${userId}/embedding`;
+const USER_EMBEDDING_URL = (userId: number) => `/api/user/${userId}/embedding`;
 export const userEmbeddingQuery = (userId: number) =>
   queryOptions({
     queryKey: [USER_EMBEDDING_URL(userId)],
