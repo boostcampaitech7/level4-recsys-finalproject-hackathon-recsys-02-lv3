@@ -59,27 +59,44 @@ def get_user_pos_neg_data():
     neg_path = os.path.join(Directory.LIGHTGCN_DIR, 'data/neg.txt')
 
     # 기존 파일 내용 읽기
-    existing_data = {}
+    pos_existing_data = {}
     with open(pos_path, 'r') as pos_file:
         for line in pos_file:
             user_id, tracks = line.strip().split('\t')
-            existing_data[int(user_id)] = set(map(int, tracks.split()))
+            pos_existing_data[int(user_id)] = set(map(int, tracks.split()))
+
+
+    neg_existing_data = {}
+    with open(neg_path, 'r') as neg_file:
+        for line in neg_file:
+            user_id, tracks = line.strip().split('\t')
+            neg_existing_data[int(user_id)] = set(map(int, tracks.split()))
 
     # 새로운 데이터 병합
     for user_id, action_list in dic.items():
-        if user_id in existing_data:
+        if user_id in pos_existing_data and user_id in neg_existing_data:
             # 기존 트랙에 새로운 트랙 추가
-            existing_data[user_id].update(map(int, action_list['pos']))
+            pos_existing_data[user_id].update(map(int, action_list['pos']))
+            neg_existing_data[user_id].update(map(int, action_list['neg']))
         else:
             # 새로운 유저 데이터 추가
-            existing_data[user_id] = set(map(int, action_list['pos']))
-
+            pos_existing_data[user_id] = set(map(int, action_list['pos']))
+            neg_existing_data[user_id] = set(map(int, action_list['neg']))
+    print(f"pos_existing_data : {len(pos_existing_data)}")
+    print(f"neg_existing_data : {len(neg_existing_data)}")
+    
     # 수정된 데이터 저장
-    with open(neg_path, 'w') as pos_file:
-        for user_id, tracks in existing_data.items():
+    with open(pos_path, 'w') as pos_file:
+        for user_id, tracks in pos_existing_data.items():
             # 트랙 ID를 정렬하여 저장
             tracks_str = ' '.join(map(str, sorted(tracks)))
             pos_file.write(f"{user_id}\t{tracks_str}\n")
+
+    with open(neg_path, 'w') as neg_file:
+        for user_id, tracks in neg_existing_data.items():
+            # 트랙 ID를 정렬하여 저장
+            tracks_str = ' '.join(map(str, sorted(tracks)))
+            neg_file.write(f"{user_id}\t{tracks_str}\n")
 
 def get_model_train():
     config_path = os.path.join(Directory.LIGHTGCN_DIR, 'config.yaml')
@@ -90,7 +107,7 @@ def get_model_train():
     print(directory_path)
     os.makedirs(directory_path, exist_ok=True)
 
-    weight_file_dir = os.path.join(directory_path, f'batch_model.pth.tar')
+    weight_file_dir = os.path.join(directory_path, f'best_model.pth')
     print(f"load and save to {weight_file_dir}")
 
     dataloader = Loader(config=config, path=os.path.join(Directory.LIGHTGCN_DIR, config.path.DATA))
@@ -160,9 +177,9 @@ def upload_file_to_gcs(bucket_name: str, replace: bool = True) -> None:
 
     today_dir = datetime.now().strftime('%y-%m-%d')
     directory_path = os.path.join(Directory.LIGHTGCN_DIR, 'checkpoints')
-    weight_file_dir = os.path.join(directory_path, f'batch_model.pth.tar')
+    weight_file_dir = os.path.join(directory_path, f'best_model.pth')
 
-    destination_path = f'model/LightGCN/{today_dir}/{today_dir}.pth.tar'    
+    destination_path = f'model/LightGCN/{today_dir}/{today_dir}.pth'    
     hook.upload(
         bucket_name=bucket_name,
         object_name=destination_path,
@@ -189,11 +206,11 @@ with DAG('lightgcn_batch_train_dag',
         task_id="start_task"
     )
 
-    get_user_pos_neg_data_task = PythonOperator(
-        task_id='get_user_pos_neg_data_task',
-        python_callable=get_user_pos_neg_data,
-        provide_context=True
-    )
+    # get_user_pos_neg_data_task = PythonOperator(
+    #     task_id='get_user_pos_neg_data_task',
+    #     python_callable=get_user_pos_neg_data,
+    #     provide_context=True
+    # )
 
     get_model_train_task = PythonOperator(
         task_id='get_model_train_task',
