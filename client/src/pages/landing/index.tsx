@@ -9,7 +9,8 @@ import { Spacing } from "~/components/Spacing";
 
 export const Component = () => {
   const navigate = useNavigate();
-
+  const dev = import.meta.env.DEV;
+  console.log(dev);
   useEffect(() => {
     const userId = Number(typedLocalStorage.get("user_id"));
     if (userId) {
@@ -21,7 +22,7 @@ export const Component = () => {
     <MobilePadding>
       <Spacing size={500} />
       <button
-        onClick={() => (location.href = `${BASE_URL}/login`)}
+        onClick={() => (location.href = `${BASE_URL}/login?dev=${dev}`)}
         css={loginCss}
       >
         <img
