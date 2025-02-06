@@ -10,7 +10,7 @@ import { Spacing } from "~/components/Spacing";
 export const Component = () => {
   const navigate = useNavigate();
   const dev = import.meta.env.DEV;
-  console.log(dev);
+
   useEffect(() => {
     const userId = Number(typedLocalStorage.get("user_id"));
     if (userId) {
