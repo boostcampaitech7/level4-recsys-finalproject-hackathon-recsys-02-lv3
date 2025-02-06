@@ -16,6 +16,9 @@ const useAuthorize = () => {
   };
 
   useEffect(() => {
+    if (location.pathname === "/") {
+      return;
+    }
     const queryId = searchParams.get("user_id") ?? undefined;
     const queryProfileImage = searchParams.get("user_img_url") ?? undefined;
     const storageId = localStorage.getItem("user_id");
