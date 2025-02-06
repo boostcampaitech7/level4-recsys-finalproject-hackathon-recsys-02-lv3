@@ -176,7 +176,7 @@ def generate_description(row):
         except (IndexError, AttributeError): 
             return ""
     elif row["reason"] == "popularity":
-        popularity_score = row["key"].strip("%")  
+        popularity_score = row["key"] 
         return f"다른 분들이 많이 찾는 상위 {popularity_score}% 노래예요"
     return ""
 
@@ -4208,8 +4208,8 @@ if __name__ == "__main__":
 
     # 3) 추천 이유 생성 
     df = generate_preference_reason(candidate_meta_df, genre_pref, artist_pref) # preference
-    df = generate_npmi_score(track_with_id_df, df, selected_track_id, candidate_track_id) # co-occurence # track_with_id_df 인자 추가
     df = generate_popularity_score(df) # popularity
+    df = generate_npmi_score(track_with_id_df, df, selected_track_id, candidate_track_id) # co-occurence # track_with_id_df 인자 추가
     df["description"] = df.apply(generate_description, axis=1) # 설명문
 
     # 4) json 포맷 저장
