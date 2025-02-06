@@ -83,11 +83,12 @@ def calculate_npmi_from_vectors(selected_track, candidate_track, n_users=14959) 
     return NPMI
 
 
-def generate_npmi_score(df: pd.DataFrame, selected_track_id: list, candidate_track_id: list) -> pd.DataFrame:
+def generate_npmi_score(track_with_id_df: pd.DataFrame, df: pd.DataFrame, selected_track_id: list, candidate_track_id: list) -> pd.DataFrame:
     """
     후보곡과 선택된 트랙 간의 NPMI 점수를 계산하여 DataFrame을 업데이트하는 함수.
 
     Args:
+		track_with_id_df (pd. DataFrame): track-track_id 정보가 담긴 DataFrame
         df (pd.DataFrame): 후보곡 메타 정보가 담긴 DataFrame
         selected_track_id (list): 사용자가 선택한 트랙 ID 목록
         candidate_track_id (list): 추천 후보곡 ID 목록
@@ -99,7 +100,7 @@ def generate_npmi_score(df: pd.DataFrame, selected_track_id: list, candidate_tra
     cnt, total = 0, 0
 
     # 'selected_track_id'에 해당하는 트랙 이름 조회
-    track_name_dict = df[df['track_id'].isin(selected_track_id)].set_index('track_id')['track'].to_dict()
+    track_name_dict = track_with_id_df[track_with_id_df['track_id'].isin(selected_track_id)].set_index('track_id')['track'].to_dict()
 
     # 각 후보곡에 대해 NPMI 점수 계산
     for candidate_id in candidate_track_id:
@@ -4190,6 +4191,7 @@ if __name__ == "__main__":
 
     # 후보곡의 메타 정보
     df = pd.read_feather("fast_result.feather")
+    track_with_id_df = df[["track", "track_id"]] # track-track_id 매핑용
 
     config_path = "../config.yaml"
     config = OmegaConf.load(config_path)
@@ -4206,7 +4208,7 @@ if __name__ == "__main__":
 
     # 3) 추천 이유 생성 
     df = generate_preference_reason(candidate_meta_df, genre_pref, artist_pref) # preference
-    df = generate_npmi_score(df, selected_track_id, candidate_track_id) # co-occurence
+    df = generate_npmi_score(track_with_id_df, df, selected_track_id, candidate_track_id) # co-occurence # track_with_id_df 인자 추가
     df = generate_popularity_score(df) # popularity
     df["description"] = df.apply(generate_description, axis=1) # 설명문
 
