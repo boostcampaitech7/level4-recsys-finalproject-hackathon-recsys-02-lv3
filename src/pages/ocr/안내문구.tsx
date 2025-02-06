@@ -2,6 +2,7 @@ import { css } from "@emotion/react";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import OcrExample from "~/assets/ocr-example.png";
+import { Description } from "~/components/Description";
 import FileUploadButton from "~/components/FileUploadButton";
 import { MobilePadding } from "~/components/MobilePadding";
 import { Spacing } from "~/components/Spacing";
@@ -32,21 +33,21 @@ export const Ocr안내문구 = () => {
         외부 플레이리스트 가져오기
       </Title>
       <Spacing size={40} />
-      <ul
+      <Description
         css={css({
           paddingLeft: 20,
           lineHeight: 1.5,
-          fontSize: 18,
-          color: "#cacaca",
         })}
       >
-        <li>
-          앨범커버 등의 부가정보가 포함되지 않도록 상하좌우를 모두 크롭하여
-          곡명, 아티스트명만 캡처된 이미지를 사용해주세요.
-        </li>
-        <br />
-        <li> 곡명 - 아티스트명 순서로 정렬된 이미지를 사용해주세요.</li>
-      </ul>
+        <ul>
+          <li>
+            앨범커버 등의 부가정보가 포함되지 않도록 상하좌우를 모두 크롭하여
+            곡명, 아티스트명만 캡처된 이미지를 사용해주세요.
+          </li>
+          <br />
+          <li> 곡명 - 아티스트명 순서로 정렬된 이미지를 사용해주세요.</li>
+        </ul>
+      </Description>
       <Spacing size={20} />
       <img
         src={OcrExample}
