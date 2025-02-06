@@ -17,3 +17,6 @@ WHERE u.user_id IS NULL;
 
 DROP TABLE temp_user_embeddings;
 """
+
+
+

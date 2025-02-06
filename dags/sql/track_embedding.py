@@ -17,3 +17,4 @@ WHERE t.track_id IS NULL;
 
 DROP TABLE temp_track_embeddings;
 """
+
