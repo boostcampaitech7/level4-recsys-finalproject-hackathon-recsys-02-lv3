@@ -1,33 +1,17 @@
-import utils
-import torch
-import numpy as np
-from tensorboardX import SummaryWriter
-import time
-from omegaconf import OmegaConf
 import os
-import Procedure
-from model import LightGCN
-from batch_dataloader import Loader
-from utils import EarlyStopping
-from tqdm import tqdm
-from datetime import datetime, timedelta
+from datetime import datetime
 import pickle
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.empty import EmptyOperator
-from airflow.providers.postgres.operators.postgres import PostgresOperator
-from airflow.providers.postgres.hooks.postgres import PostgresHook
 from airflow.models import XCom
 from airflow.utils.session import create_session
 from airflow.providers.google.cloud.hooks.gcs import GCSHook
 
-import torch
-
 from BiEncoder.src.preprocess import preprocess_data
 from BiEncoder.src.models import SongEncoder, GenreEncoder
 from BiEncoder.src.train import train_model
-from BiEncoder.src.eval import evaluate_model
 from dags.utils import Directory, Config
 
 def save_data(data_songs, artist_list, **context):
@@ -158,15 +142,13 @@ def delete_xcoms_for_dags(dag_ids, **kwargs):
 
 default_args = {
     'owner': 'airflow',
-    'depends_on_past': False,
-    'retries': 1,
-    'retry_delay': timedelta(minutes=5),
+    'depends_on_past': False
 }
 
 
 with DAG('biencoder_batch_train_dag',
         default_args=default_args,
-        schedule='0 0 * * *',
+        schedule=None,
         start_date=datetime(2024, 1, 1),
         catchup=False
     ):
