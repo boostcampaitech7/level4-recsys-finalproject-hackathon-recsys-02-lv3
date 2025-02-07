@@ -1,9 +1,8 @@
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.empty import EmptyOperator
-from airflow.providers.ssh.operators.ssh import SSHOperator
-from airflow.providers.google.cloud.hooks.gcs import GCSHook
 from airflow.models import XCom
+from airflow.utils.session import create_session
 
 from datetime import timedelta, datetime
 import os
@@ -56,18 +55,22 @@ def load_embedding_to_table(**context):
     conn.commit()
     print("update embedding vector successfully!")
 
+def delete_xcoms_for_dags(dag_ids, **kwargs):
+    with create_session() as session:
+        session.query(XCom).filter(
+            XCom.dag_id.in_(dag_ids)
+        ).delete(synchronize_session=False)
+        session.commit()
 
 default_args = {
     'owner': 'airflow',
-    'depends_on_past': False,
-    'retries': 1,
-    'retry_delay': timedelta(minutes=5),
+    'depends_on_past': False
 }
 
 
 with DAG('lightgcn_daily_train_dag',
         default_args=default_args,
-        schedule='0 0 * * *',
+        schedule='0 15 * * *',  # 하루에 한번 한국시간(KST, UTC+9)00시에 배치학습
         start_date=datetime(2024, 1, 1),
         catchup=False
     ):
@@ -88,8 +91,14 @@ with DAG('lightgcn_daily_train_dag',
         provide_context = True
     )
 
+    delete_xcom_task = PythonOperator(
+            task_id="delete_xcom_task",
+            python_callable=delete_xcoms_for_dags,
+            op_kwargs={'dag_ids': ['get_embedding_vector_task']}
+        )
+
     end_task = EmptyOperator(
         task_id="end_task"
     )
 
-    start_task >> get_embedding_vector_task >> load_embedding_to_table_task >> end_task
+    start_task >> get_embedding_vector_task >> load_embedding_to_table_task >> delete_xcom_task >> end_task
