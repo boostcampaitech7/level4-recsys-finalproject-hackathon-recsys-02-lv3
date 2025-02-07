@@ -12,19 +12,16 @@ from utils import EarlyStopping
 from tqdm import tqdm
 from datetime import datetime, timedelta
 import pandas as pd
-import psycopg2
 from pymongo import MongoClient
 
 from airflow import DAG
+from airflow.providers.ssh.operators.ssh import SSHOperator
+from airflow.utils.trigger_rule import TriggerRule
 from airflow.operators.python import PythonOperator
 from airflow.operators.empty import EmptyOperator
-from airflow.providers.postgres.operators.postgres import PostgresOperator
-from airflow.providers.postgres.hooks.postgres import PostgresHook
-from airflow.models import XCom
-from airflow.utils.session import create_session
 from airflow.providers.google.cloud.hooks.gcs import GCSHook
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 
-from dags.sql import user_track, track
 from dags.utils import Config, Directory
 from LightGCN.code.model import LightGCN
 from LightGCN.code.batch_dataloader import Loader
@@ -189,16 +186,14 @@ def upload_file_to_gcs(bucket_name: str, replace: bool = True) -> None:
 
 default_args = {
     'owner': 'airflow',
-    'depends_on_past': False,
-    'retries': 1,
-    'retry_delay': timedelta(minutes=5),
+    'depends_on_past': False
 }
 
 
 with DAG('lightgcn_batch_train_dag',
         default_args=default_args,
-        schedule='0 0 * * *',
-        start_date=datetime(2024, 1, 1),
+        schedule='0 15 */4 * *',  # 4일에 한번 한국시간(KST, UTC+9)00시에 배치학습
+        start_date=datetime(2025, 2, 6),
         catchup=False
     ):
 
@@ -206,16 +201,36 @@ with DAG('lightgcn_batch_train_dag',
         task_id="start_task"
     )
 
-    # get_user_pos_neg_data_task = PythonOperator(
-    #     task_id='get_user_pos_neg_data_task',
-    #     python_callable=get_user_pos_neg_data,
-    #     provide_context=True
-    # )
+    get_user_pos_neg_data_task = PythonOperator(
+        task_id='get_user_pos_neg_data_task',
+        python_callable=get_user_pos_neg_data
+    )
+
+    get_model_train_at_gpu_task = SSHOperator(
+        task_id='get_model_train_at_gpu_task',
+        ssh_conn_id='server_1',
+        command="""
+            cd /data/ephemeral/home
+            echo $(pwd)
+
+            source venv/bin/activate
+            python -c "import torch; print('PyTorch:', torch.__version__)"
+
+            export PYTHONPATH="/data/ephemeral/home"
+            
+            # 환경변수 설정 확인
+            echo "PYTHONPATH 환경변수:"
+            echo $PYTHONPATH
+
+            python3 -u LightGCN/code/main.py 2>&1 | tee training.log
+        """,
+        cmd_timeout = 3000
+    )
 
     get_model_train_task = PythonOperator(
         task_id='get_model_train_task',
         python_callable=get_model_train,
-        provide_context=True
+        trigger_rule=TriggerRule.ONE_FAILED
     )
 
     upload_file_to_gcs_task = PythonOperator(
@@ -223,13 +238,23 @@ with DAG('lightgcn_batch_train_dag',
         python_callable=upload_file_to_gcs,
         op_kwargs= {
             "bucket_name": "itsmerecsys"
-        },
-        provide_context=True
+        }
+    )
+
+    call_trigger_task = TriggerDagRunOperator(
+        task_id='call_trigger',
+        trigger_dag_id='lighgcn_embedding_update_dag',
+        trigger_run_id=None,
+        execution_date=None,
+        reset_dag_run=False,
+        wait_for_completion=False,
+        poke_interval=60,
+        allowed_states=["success"],
+        failed_states=None,
     )
     
     end_task = EmptyOperator(
         task_id="end_task"
     )
 
-    #start_task >> get_user_pos_neg_data_task >> get_model_train_task >> upload_file_to_gcs_task >> end_task
-    start_task >> get_model_train_task >> upload_file_to_gcs_task >> end_task
+    start_task >> get_user_pos_neg_data_task >> get_model_train_task >> get_model_train_at_gpu_task >> upload_file_to_gcs_task >> call_trigger_task >> end_task
