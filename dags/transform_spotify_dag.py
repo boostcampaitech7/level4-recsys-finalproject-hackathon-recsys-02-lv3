@@ -137,15 +137,13 @@ def upload_file_to_gcs(bucket_name: str, replace: bool = True) -> None:
 
 default_args = {
     'owner': 'airflow',
-    'depends_on_past': False,
-    'retries': 1,
-    'retry_delay': timedelta(minutes=5),
+    'depends_on_past': False
 }
 
 
 with DAG('transform_spotify_dag',
         default_args=default_args,
-        schedule='0 0 * * *',
+        schedule=None,
         start_date=datetime(2024, 1, 1),
         catchup=False
     ):

@@ -231,7 +231,7 @@ NUM_PARTITION = 8
 with DAG('daily_spotify_dag',
         default_args=default_args,
         schedule='0 0 * * *',
-        start_date=datetime(2024, 1, 1),
+        schedule='0 15 */4 * *',  # 4일에 한번 한국시간(KST, UTC+9)00시에 배치학습
         catchup=False
     ):
 
