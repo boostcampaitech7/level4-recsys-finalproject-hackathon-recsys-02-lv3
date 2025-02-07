@@ -1,20 +1,14 @@
 from datetime import datetime, timedelta
-import numpy as np
 import torch
 from omegaconf import OmegaConf
 import psycopg2
 import logging
 import os
 import pickle
-from tqdm import tqdm
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.empty import EmptyOperator
-from airflow.providers.postgres.operators.postgres import PostgresOperator
-from airflow.providers.postgres.hooks.postgres import PostgresHook
-from airflow.models import XCom
-from airflow.utils.session import create_session
 
 from torch.utils.data import Dataset, DataLoader
 from BiEncoder.src.preprocess import preprocess_data, load_config, connect_db
@@ -182,16 +176,13 @@ def load_trained_model(**context):
 
 default_args = {
     'owner': 'airflow',
-    'depends_on_past': False,
-    'retries': 1,
-    'retry_delay': timedelta(minutes=5),
-    'execution_timeout': timedelta(hours=2)
+    'depends_on_past': False
 }
 
 
 with DAG('biencoder_embedding_update_dag',
         default_args=default_args,
-        schedule='0 0 * * *',
+        schedule=None,
         start_date=datetime(2024, 1, 1),
         catchup=False
     ):
