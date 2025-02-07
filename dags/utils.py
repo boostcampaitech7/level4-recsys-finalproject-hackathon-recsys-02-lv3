@@ -17,8 +17,8 @@ class Config:
 
     BUCKET_NAME = Variable.get("BUCKET_NAME")
 
-    RDB_POSTGRES_CONNECTION = 'rdb_postgres_connection'
-    VECTOR_DB_POSTGRES_CONNECTION = 'verctor_db_postgres_connection'
+    RDB_POSTGRES_CONNECTION = Variable.get("RDB_POSTGRES_CONNECTION")
+    VECTOR_DB_POSTGRES_CONNECTION = Variable.get("VECTOR_DB_POSTGRES_CONNECTION")
 
 
 
