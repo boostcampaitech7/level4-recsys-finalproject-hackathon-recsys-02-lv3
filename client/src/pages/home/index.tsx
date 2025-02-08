@@ -25,11 +25,14 @@ export const Component = () => {
             width: "100%",
             overflowX: "auto",
             alignItems: "center",
-            gap: 18,
+            gap: 8,
           })}
         >
           <ProfileImage />
-          <Title>자영업자를 위한 플레이리스트 추천</Title>
+          <div>
+            <Title>TuneYourShop</Title>
+            <Description fontSize={13}>당신의 매장을 더욱 매력적으로</Description>
+          </div>
         </div>
         <Spacing size={40} />
         <Description>플레이리스트를 선택해주세요</Description>
