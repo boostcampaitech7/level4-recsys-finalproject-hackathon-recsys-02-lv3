@@ -20,9 +20,9 @@ export const ProfileImage = () => {
           width: "100%",
           height: "100%",
           border: "solid",
-          borderWidth: "5px",
+          borderWidth: "3px",
           borderRadius: "50%",
-          borderColor: "#1ED760",
+          borderColor: "#72F3A0",
           objectFit: "cover",
           objectPosition: "center",
         })}

@@ -29,9 +29,15 @@ export const Component = () => {
           })}
         >
           <ProfileImage />
-          <div>
-            <Title>TuneYourShop</Title>
-            <Description fontSize={13}>당신의 매장을 더욱 매력적으로</Description>
+          <div
+            css={css({
+              fontFamily: "'Julius Sans One'",
+            })}
+          >
+            <Description fontSize={15}>내 가게에 딱 맞는 음악,</Description>
+            <Title fontSize={27} color={"#72F3A0"}>
+              TuneYourShop
+            </Title>
           </div>
         </div>
         <Spacing size={40} />
