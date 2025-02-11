@@ -1,7 +1,7 @@
 
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/efde952e-0dbb-4923-809c-3ff57ee18bde" alt="로고 이미지" width="400">
+  <img src="https://github.com/user-attachments/assets/efde952e-0dbb-4923-809c-3ff57ee18bde" alt="로고 이미지" width="300">
 </p>
 
 
