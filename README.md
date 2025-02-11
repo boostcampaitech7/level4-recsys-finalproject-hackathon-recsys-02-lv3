@@ -7,8 +7,10 @@
 <br><br><br>
 
 ## 프로젝트 설명
+**[🎶TuneyourShop으로 플레이리스트 추천받기](https://tuneyourshop.vercel.app/)**
+<br><br>
 <strong>Tune your Shop</strong>은 가게 무드에 최적화된 음악을 추천하는 솔루션입니다.  
-태그를 통해 손쉽게 매장에 어울리는 플레이리스트를 생성해드려요 
+태그를 통해 손쉽게 매장에 어울리는 플레이리스트를 생성해드려요. 
 
 <p align="center">
   <img src="https://github.com/user-attachments/assets/f3cb5e48-7bf0-4847-91e1-05bddaaeb846" width="200">
@@ -39,7 +41,7 @@ https://github.com/user-attachments/assets/30628ec3-17a4-47df-849c-2aa28fc15f1e
 
 ## 모델 아키텍쳐
 <table>
-  <tr>
+  <tr align='center'>
     <td>
     <strong>LightGCN - Candidate Generation Model</strong>
     <img width="50%" src="https://github.com/user-attachments/assets/518e0fa0-b9f6-4f2f-9851-77b1f9cd26a3"/>
@@ -87,6 +89,6 @@ https://github.com/user-attachments/assets/30628ec3-17a4-47df-849c-2aa28fc15f1e
 | `Genre` | 장르 태그 |
 | `Introduction` | 곡 소개 |
 
-<br><br><br>
+<br><br>
 
 ## Appendix
