@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.dto.onboarding import OnboardingRequest, Onboarding
 from app.service.model_service import ModelService
 from app.utils.utils import fetch_tracks_from_redis
-from db.database_postgres import PostgresSessionLocal, User
+from db.database import SessionLocal, User
 import logging
 
 router = APIRouter()
@@ -12,7 +12,7 @@ model_service = ModelService()
 logger = logging.getLogger("uvicorn")
 
 def get_db():
-    db = PostgresSessionLocal()
+    db = SessionLocal()
     try:
         yield db
     finally:
@@ -38,6 +38,10 @@ async def get_onboarding(onboadingRequest: OnboardingRequest, db: Session = Depe
         url='/onboarding',
         json=onboadingRequest.dict()
     )
+
+    find_user.tag = onboadingRequest.tags
+    db.commit()
+    db.refresh(find_user)  # 최신 데이터 반영
 
     pairs = response["items"]
     items1_id = [pair["item1"] for pair in pairs]

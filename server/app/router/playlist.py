@@ -10,10 +10,10 @@ from app.service.lastfm_service import LastfmService
 from app.service.model_service import ModelService
 from app.dto.playlist import Playlist
 from app.dto.common import Recommendation, RecommendationRequest, InsertTrackRequest
-from db.database_postgres import PostgresSessionLocal, User
+from db.database import SessionLocal, User
 
 def get_db():
-    db = PostgresSessionLocal()
+    db = SessionLocal()
     try:
         yield db
     finally:
@@ -115,6 +115,7 @@ async def get_recommendation_by_playlist(
             exists.append(track_dict[key][0])
         else:
             missing_requests.append((artist, track))
+    logger.info(find_user.tag)
 
     # Last.fm API 병렬 요청
     missing_metadata = await asyncio.gather(*(lastfm_service.fetch_metadata(artist, track, playlist_name) for artist, track in missing_requests))
@@ -123,7 +124,7 @@ async def get_recommendation_by_playlist(
     response = await model_service.make_request(
         method='POST',
         url="/playlist",
-        json=RecommendationRequest(user_id=user_id, exists=exists, missing=missing).dict()
+        json=RecommendationRequest(user_id=user_id, tag=find_user.tag, exists=exists, missing=missing).dict()
     )
     return JSONResponse(status_code=200, content=response)
 

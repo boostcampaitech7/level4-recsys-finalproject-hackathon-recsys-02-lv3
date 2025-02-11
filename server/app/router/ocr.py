@@ -12,10 +12,10 @@ from app.service.ocr_service import OCRService
 from app.config.settings import Settings
 from app.dto.common import Recommendation, RecommendationRequest, InsertTrackRequest
 from app.dto.ocr import OCRTrack, OCRRecommendation
-from db.database_postgres import PostgresSessionLocal, User
+from db.database import SessionLocal, User
 
 def get_db():
-    db = PostgresSessionLocal()
+    db = SessionLocal()
     try:
         yield db
     finally:
@@ -118,7 +118,7 @@ async def get_recommendation_by_image(ocrRecommendation: OCRRecommendation, db: 
     response = await model_service.make_request(
         method='POST',
         url='/playlist',
-        json=RecommendationRequest(user_id=ocrRecommendation.user_id, exists=exists, missing=missing).dict()
+        json=RecommendationRequest(user_id=ocrRecommendation.user_id, tag=find_user.tag, exists=exists, missing=missing).dict()
     )
 
     return JSONResponse(status_code=200, content=response)
