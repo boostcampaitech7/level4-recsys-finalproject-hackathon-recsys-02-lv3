@@ -21,6 +21,7 @@ class TrackMetaData(BaseModel):
 
 class RecommendationRequest(BaseModel):
     user_id: int
+    tag: list[int]
     exists: list[int]
     missing: list[TrackMetaData]
 
