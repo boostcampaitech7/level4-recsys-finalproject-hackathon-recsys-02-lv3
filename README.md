@@ -12,4 +12,4 @@ https://github.com/user-attachments/assets/30628ec3-17a4-47df-849c-2aa28fc15f1e
 |Data Engineering|Modeling, Frontend|MLOps|Modeling|Backend|
 
 ## 서비스 아키텍쳐
-<img width="100%" src="./docs/imgs/architecture_service.png"/>
+<img width="100%" src="https://github.com/user-attachments/assets/c0857d70-7d75-4638-acc7-bb209d88ea3a"/>
