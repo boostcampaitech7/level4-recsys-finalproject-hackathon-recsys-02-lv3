@@ -8,8 +8,7 @@ from app.dto.common import Artist
 setting = Settings()
 redis_client = redis.Redis(host=setting.REDIS_HOST, port=setting.REDIS_PORT, password=setting.REDIS_PASSWORD, decode_responses=True)
 
-def create_redirect_url(user, embedding, user_img_url=None):
-    base_url = setting.FRONT_BASE_URL
+def create_redirect_url(user, base_url, embedding, user_img_url=None):
     if embedding:
         redirect_url = f"{base_url}/home?user_id={user.user_id}"
     else:
@@ -31,8 +30,8 @@ def fetch_tracks_from_redis(track_ids):
             track_id=track_info.get("track_id", 0),
             track_name=track_info.get("track_name", ""),
             track_img_url=track_info.get("track_img_url", ""),
-            artists=[Artist(artist_name=artist) for artist in track_info.get("artist", "")], 
-            tags=[track_info.get("tag", "")]
+            artists=[Artist(artist_name=" & ".join(track_info.get("artist", [])))], 
+            tags=track_info.get("tag", "")
         ).dict())
 
     return items
