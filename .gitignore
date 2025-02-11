@@ -6,4 +6,12 @@ __pycache__/
 .cache/
 .myenv/
 *.pyc
-cache/
+*.pkl
+download/
+transform/
+*.json
+*.ipynb
+LightGCN/embeddings/
+LightGCN/runs/
+LightGCN/checkpoints/
+logs/

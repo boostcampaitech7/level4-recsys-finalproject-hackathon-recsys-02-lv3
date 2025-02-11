@@ -1,8 +1,9 @@
 from datetime import datetime, timedelta
 import numpy as np
 import torch
+from omegaconf import OmegaConf
+import os
 
-# 3. Airflow 관련 import
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.empty import EmptyOperator
@@ -11,69 +12,82 @@ from airflow.providers.postgres.hooks.postgres import PostgresHook
 from airflow.models import XCom
 from airflow.utils.session import create_session
 
-# 4. 로컬 모듈 import
 from dags.sql import user_embedding, track_embedding
 from LightGCN.code.model import LightGCN
-from LightGCN.code.dataloader import Loader
+from LightGCN.code.batch_dataloader import Loader
+from LightGCN.code import utils
 
+def save_embeddings(user_embs, item_embs, **context):
+    # Save to mounted volume
+    ROOT_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'LightGCN')
+    date_str = datetime.now().strftime('%y-%m-%d')
+    save_dir = os.path.join(ROOT_PATH, f"embeddings/{date_str}")
+    os.makedirs(save_dir, exist_ok=True)
+    
+    # Save embeddings
+    torch.save(user_embs, os.path.join(save_dir, 'user_embeddings.pt'))
+    torch.save(item_embs, os.path.join(save_dir, 'item_embeddings.pt'))
+    print("save the embeddings successfully!")
+    # Push only the paths to XCom
+    context['task_instance'].xcom_push(
+        key='embeddings_path', 
+        value={'user': os.path.join(save_dir, 'user_embeddings.pt'),
+               'item': os.path.join(save_dir, 'item_embeddings.pt')}
+    )
+    print("push embeddings to XCom successfully!")
+    
+def load_embeddings(**context):
+    # Get paths from XCom
+    paths = context['task_instance'].xcom_pull(task_ids='get_user_item_embedding_task', key='embeddings_path')
+    
+    # Load embeddings
+    user_embs = torch.load(paths['user'])
+    item_embs = torch.load(paths['item'])
 
-def get_user_item_embeddding(**context):
-    ### config ###
-    config = {}
-    # config['batch_size'] = 4096
-    config['bpr_batch_size'] = 2048
-    config['latent_dim_rec'] = 64
-    config['lightGCN_n_layers']= 3
-    config['dropout'] = 0.001
-    config['keep_prob']  = 0.6
-    config['A_n_fold'] = 100
-    config['test_u_batch_size'] = 1000
-    config['multicore'] = 0
-    config['lr'] = 0.001
-    config['decay'] = 1e-4
-    config['pretrain'] = 0
-    config['A_split'] = False
-    config['bigdata'] = False
-    config['shuffle'] = 'shuffle'
+    return user_embs, item_embs
 
-    print("Load the dataset")
-    dataset = Loader(path="../data/spotify")
-    print("Load the model")
+def get_user_item_embedding(**context):
+    ROOT_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'LightGCN')
+    print(f"ROOT_PATH : {ROOT_PATH}")
+    config_path = os.path.join(ROOT_PATH, 'config.yaml')
+    config = OmegaConf.load(config_path)
+    print(f"config: {OmegaConf.to_yaml(config)}")
+    
+    today_dir = datetime.now().strftime('%y-%m-%d')
+    weight_file_dir = os.path.join(ROOT_PATH, f'checkpoints/{today_dir}/{today_dir}.pth.tar')
+    dataset = Loader(config=config, path=os.path.join(ROOT_PATH,config.path.DATA))
     model = LightGCN(config, dataset)
-    checkpoint = torch.load('/Users/mac/level4-recsys-finalproject-hackathon-recsys-02-lv3/LightGCN/code/checkpoints/best_model.pth', map_location=torch.device('cpu'))
+    checkpoint = torch.load(weight_file_dir, map_location=torch.device('cpu'))
     model.load_state_dict(checkpoint)
-
+    print("Load the model successfully!")
+    
     user_embs, item_embs = model.embedding_user.weight, model.embedding_item.weight
 
-    context['task_instance'].xcom_push(key='user_embeddings_data', value=user_embs)
-    context['task_instance'].xcom_push(key='track_embeddings_data', value=item_embs)
+    save_embeddings(user_embs, item_embs, **context)
 
 # User Embedding 임시 테이블 저장
 def load_to_user_temp_table(**context):
-    embeddings_data = context['task_instance'].xcom_pull(
-        task_ids='get_user_item_embeddding_task',
-        key='user_embeddings_data'
-    )
+    user_embs, _ = load_embeddings(**context)
     
-    pg_hook = PostgresHook(postgres_conn_id='postgres_connection')
+    pg_hook = PostgresHook(postgres_conn_id='vector_db_postgres_connection')
     
     with pg_hook.get_conn() as conn:
         cur = conn.cursor()
         try:
             cur.execute("""
                 CREATE TABLE temp_user_embeddings (
-                    user_id INT PRIMARY KEY
+                    user_id SERIAL PRIMARY KEY,
                     user_emb vector(64)
                 );
             """)
             
-            for data in embeddings_data:
+            for data in user_embs:
                 cur.execute(
                     """
-                    INSERT INTO temp_user_embeddings (user_id, user_emb)
-                    VALUES (%s, %s, %s::vector)
+                    INSERT INTO temp_user_embeddings (user_emb)
+                    VALUES (%s::vector)
                     """,
-                    (data['user_id'], str(data['user_emb']))
+                    (str(data.tolist()),)
                 )
             
             conn.commit()
@@ -86,30 +100,28 @@ def load_to_user_temp_table(**context):
 
 # Track Embedding 임시 테이블 저장
 def load_to_track_temp_table(**context):
-    embeddings_data = context['task_instance'].xcom_pull(
-        task_ids='get_user_item_embeddding_task',
-        key='track_embeddings_data'
-    )
+    _, item_embs = load_embeddings(**context)
 
-    pg_hook = PostgresHook(postgres_conn_id='postgres_connection')
+    pg_hook = PostgresHook(postgres_conn_id='vector_db_postgres_connection')
     
     with pg_hook.get_conn() as conn:
         cur = conn.cursor()
         try:
             cur.execute("""
                 CREATE TABLE temp_track_embeddings (
-                    track_id INT PRIMARY KEY,
+                    track_id SERIAL PRIMARY KEY,
                     track_emb vector(64)
                 );
             """)
             
-            for data in embeddings_data:
+            for data in item_embs:
+                print(data)
                 cur.execute(
                     """
-                    INSERT INTO temp_track_embeddings (track_id, track_emb)
-                    VALUES (%s, %s::vector)
+                    INSERT INTO temp_track_embeddings (track_emb)
+                    VALUES (%s::vector)
                     """,
-                    (data['track_id'], str(data['track_emb']))
+                    (str(data.tolist()),)
                 )
             
             conn.commit()
@@ -148,9 +160,9 @@ with DAG('user_embedding_update_dag',
         task_id="start_task"
     )
 
-    get_user_item_embeddding_task = PythonOperator(
-        task_id='get_user_item_embeddding_task',
-        python_callable=get_user_item_embeddding,
+    get_user_item_embedding_task = PythonOperator(
+        task_id='get_user_item_embedding_task',
+        python_callable=get_user_item_embedding,
         provide_context=True
     )
 
@@ -162,7 +174,7 @@ with DAG('user_embedding_update_dag',
 
     upsert_user_embeddings_task = PostgresOperator(
         task_id='upsert_user_embeddings_task',
-        postgres_conn_id='postgres_connection',
+        postgres_conn_id='vector_db_postgres_connection',
         sql=user_embedding.upsert_sql
     )
 
@@ -174,7 +186,7 @@ with DAG('user_embedding_update_dag',
 
     upsert_track_embeddings_task = PostgresOperator(
         task_id='upsert_track_embeddings_task',
-        postgres_conn_id='postgres_connection',
+        postgres_conn_id='vector_db_postgres_connection',
         sql=track_embedding.upsert_sql
     )
 
@@ -188,11 +200,11 @@ with DAG('user_embedding_update_dag',
         task_id = "end_task"
     )
 
-    start_task >> get_user_item_embeddding_task
-    start_task >> get_user_item_embeddding_task
+    start_task >> get_user_item_embedding_task
+    start_task >> get_user_item_embedding_task
 
-    get_user_item_embeddding_task >> load_to_user_temp_table_task >> upsert_user_embeddings_task
-    get_user_item_embeddding_task >> load_to_track_temp_table_task >> upsert_track_embeddings_task
+    get_user_item_embedding_task >> load_to_user_temp_table_task >> upsert_user_embeddings_task
+    get_user_item_embedding_task >> load_to_track_temp_table_task >> upsert_track_embeddings_task
 
     upsert_user_embeddings_task >> delete_xcom_task
     upsert_track_embeddings_task >> delete_xcom_task
