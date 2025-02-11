@@ -6,5 +6,4 @@ __pycache__/
 .cache/
 .myenv/
 *.pyc
-*.py[cod]
 cache/
