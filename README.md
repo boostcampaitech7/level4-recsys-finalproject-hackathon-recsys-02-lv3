@@ -3,9 +3,6 @@
 태그를 통해 손쉽게 매장에 어울리는 플레이리스트를 생성해드려요 
 
 ## 시연 영상
-[![Video Label](http://img.youtube.com/vi/2yghgxWudBE/0.jpg)](https://youtu.be/2yghgxWudBE')
-
-
 https://github.com/user-attachments/assets/30628ec3-17a4-47df-849c-2aa28fc15f1e
 
 
