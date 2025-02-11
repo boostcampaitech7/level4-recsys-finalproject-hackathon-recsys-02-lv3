@@ -2,6 +2,15 @@
 <strong>Tune your Shop</strong>은 가게 무드에 최적화된 음악을 추천하는 솔루션입니다.  
 태그를 통해 손쉽게 매장에 어울리는 플레이리스트를 생성해드려요 
 
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/f3cb5e48-7bf0-4847-91e1-05bddaaeb846" width="200">
+  <img src="https://github.com/user-attachments/assets/d86f16f4-ba9c-4f51-9629-a288d925b19d" width="200">
+  <img src="https://github.com/user-attachments/assets/f18c0e04-34b7-47e5-ac74-dc7e8da7056d" width="200">
+  <img src="https://github.com/user-attachments/assets/4a9273fa-4bc3-46ae-af85-f2a3531a7ea1" width="200">
+</p>
+
+
+
 ## 시연 영상
 https://github.com/user-attachments/assets/30628ec3-17a4-47df-849c-2aa28fc15f1e
 
