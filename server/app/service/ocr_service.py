@@ -7,21 +7,28 @@ class OCRService():
     def __init__(self):
         self.setting = Settings()
 
-    def _clean_name(self, name: str) -> str:
-        """각 이름에서 '동영상'과 '19'를 제거"""
-        name = re.sub(r'동영상\s*', '', name).strip()  # 맨 앞의 '동영상' 제거
-        name = re.sub(r'^19\s*', '', name).strip() # 맨 앞의 '19' 제거거
-        return name
+    def _clean_line(self, line):
+        line = re.sub(r'\d+\s*▶*\s*동영상*', '', line)
+        line = re.sub(r'[^\w\s&(),.]', '', line)
+        line = re.sub(r'\d+\s*$', '', line)
+        line = re.sub(r'(\d+\s*|E\s*)$', '', line)
+        return line.strip()
 
-    def _text_preprocessing(self, text: str):
-        pattern = r'([^\n·]+)\s*·?\s*([^\n·]+)'
-        matches = re.findall(pattern, text)
-        # 추출된 결과를 정제하여 반환
-        cleaned_matches = [(self._clean_name(track), self._clean_name(artist)) for track, artist in matches]
-        return cleaned_matches
+    def _extract_tracks_and_artists(self, data):
+        # 입력 데이터를 라인별로 나누고, 공백 라인은 제거
+        lines = [line.strip() for line in data.strip().split("\n") if line.strip()]
+
+        # 트랙명과 아티스트명 추출 (트랙명과 아티스트명이 번갈아가며 나옴)
+        result = []
+        for i in range(0, len(lines), 2):
+            track = self._clean_line(lines[i])  # 트랙명
+            artist = self._clean_line(lines[i+1]) if i+1 < len(lines) else ''  # 아티스트명
+            result.append((track, artist))
+
+        return result
     
     def replace_text(self, text: str):
-        return text.replace('...', '%').strip()
+        return re.sub(r'\.+$', '%', text).strip()
     
     def remove_text(self, text: str):
         return text.replace('%', '').strip()
@@ -46,7 +53,7 @@ class OCRService():
                     )
                     if response.status_code == 200:
                         result_text = response.json()["text"]
-                        track_artist = self._text_preprocessing(result_text)
+                        track_artist = self._extract_tracks_and_artists(result_text)
                         return track_artist
                     else:
                         raise HTTPException(status_code=response.status_code, detail=response.json())
