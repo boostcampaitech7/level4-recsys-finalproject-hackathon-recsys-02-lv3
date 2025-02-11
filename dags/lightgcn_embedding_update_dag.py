@@ -170,16 +170,14 @@ def delete_xcoms_for_dags(dag_ids, **kwargs):
 
 default_args = {
     'owner': 'airflow',
-    'depends_on_past': False,
-    'retries': 1,
-    'retry_delay': timedelta(minutes=5),
+    'depends_on_past': False
 }
 
 
 with DAG('lightgcn_embedding_update_dag',
         default_args=default_args,
-        schedule='0 0 * * *',
-        start_date=datetime(2024, 1, 1),
+        schedule=None,
+        start_date=datetime(2024, 2, 6),
         catchup=False
     ):
 
