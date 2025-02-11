@@ -32,7 +32,6 @@ https://github.com/user-attachments/assets/30628ec3-17a4-47df-849c-2aa28fc15f1e
     </td>
     <td>
     <strong>BiEncoder - Reranking Model</strong>
-      
     <img width="70%" src="https://github.com/user-attachments/assets/21a20b71-55fd-47b0-9c05-95e97cfd9dd4"/>
       </td>
 </tr>
