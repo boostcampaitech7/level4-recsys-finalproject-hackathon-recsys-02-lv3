@@ -20,6 +20,36 @@ https://github.com/user-attachments/assets/30628ec3-17a4-47df-849c-2aa28fc15f1e
 |[<img src="https://github.com/user-attachments/assets/0c4ff6eb-95b0-4ee4-883c-b10c1a42be14" width=130>](https://github.com/park-jaeuk)|[<img src="https://github.com/user-attachments/assets/b6cff4bf-79c8-4946-896a-666dd54c63c7" width=130>](https://github.com/JaeEunSeo)|[<img src="https://github.com/user-attachments/assets/f6572f19-901b-4aea-b1c4-16a62a111e8d" width=130>](https://github.com/Cyberger)|[<img src="https://avatars.githubusercontent.com/u/112920170?v=4" width=130>](https://github.com/YusolCho)|[<img src="https://github.com/user-attachments/assets/7ab5112f-ca4b-4e54-a005-406756262384" width=130>](https://github.com/jinnk0)|
 |Data Engineering|Modeling, Frontend|MLOps|Modeling|Backend|
 
+## 데이터셋
+이 프로젝트에서는 **Spotify Playlists 데이터셋**을 활용하여 맞춤형 음악 추천 시스템을 구축합니다.  
+해당 데이터셋은 **Spotify에서 제공하는 플레이리스트 기반 곡 정보**를 포함하며, 유저와 트랙 간의 상호작용 데이터를 제공합니다.
+
+- **데이터셋 원본:** [Kaggle - Spotify Playlists](https://www.kaggle.com/datasets/andrewmvd/spotify-playlists?select=spotify_dataset.csv)
+- **데이터 크기:** 1.2GB (CSV 파일)
+- **데이터 유형:** 테이블 데이터 (유저-아이템 상호작용)
+
+### **1. 사용자-곡 상호작용 데이터**
+**Candidate Generation Model을 학습**하는 데 활용한 데이터입니다.
+
+### **핵심 필드 (파일 경로: `spotify_dataset.csv`)**
+| Column Name | Description |
+|-------------|------------|
+| `user_id`   | 유저 식별자 (임의 생성) |
+| `track_name` | 곡 제목 |
+| `artist`    | 아티스트 이름 |
+
+### **2. 곡 메타데이터 수집**
+**Reranking Model**을 학습하는데 메타데이터가 필요하지만, 기본 데이터셋에는 **트랙명과 아티스트 정보만 포함**되어 있습니다.  
+이를 보완하기 위해 **Last.fm 웹사이트**를 통해 추가적인 곡 메타데이터를 수집했습니다.
+
+### **추가 메타데이터 핵심 필드**
+| Column Name | Description |
+|-------------|------------|
+| `Listeners` | 곡 청취자 수 |
+| `Length` | 곡 길이 |
+| `Genre` | 장르 태그 |
+| `Introduction` | 곡 소개 |
+
 ## 서비스 아키텍쳐
 <img width="100%" src="https://github.com/user-attachments/assets/c0857d70-7d75-4638-acc7-bb209d88ea3a"/>
 
