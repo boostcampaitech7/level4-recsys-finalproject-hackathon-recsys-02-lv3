@@ -1,17 +1,21 @@
+import os
 import torch
-from config import CONFIG
-from lightgcn.dataloader import Loader
-from lightgcn.model import LightGCN
+from LightGCN.code.batch_dataloader import Loader
+from LightGCN.code.model import LightGCN
 import numpy as np
+from omegaconf import OmegaConf
+
+config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "LightGCN", "config.yaml")
+CONFIG = OmegaConf.load(config_path)
 
 
 def get_model():
     """
     모델 로드 및 아이템 임베딩 반환
     """
-    dataset = Loader(path="./data")
+    dataset = Loader(config=CONFIG, path="./data")
     model = LightGCN(CONFIG, dataset)
-    checkpoint = torch.load('./lightgcn/checkpoints/best_model.pth', map_location=torch.device('cuda'))
+    checkpoint = torch.load('./LightGCN/checkpoints/best_model.pth', map_location=torch.device('cuda'))
     model.load_state_dict(checkpoint)
 
     # Item embeddings만 반환 (사용자 임베딩은 동적으로 계산)
