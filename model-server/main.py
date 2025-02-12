@@ -77,7 +77,7 @@ async def load_model():
     """FastAPI 시작 시 비동기적으로 모델 로딩"""
     global model, item_embs, song_encoder, query_encoder, scaler, data_songs
     print("Loading redis...")
-    #load_redis_data()
+    load_redis_data()
     print("--------Redis complete---------")
 
     loop = asyncio.get_event_loop()
@@ -160,9 +160,6 @@ async def onboarding_select(request: OnboardingSelectionData):
     """
     사용자가 선택한 트랙들의 임베딩을 평균 내어 사용자 임베딩으로 저장 후, 추천 트랙 100개 반환.
     """
-
-    #onboarding_10track[request.user_id]=request.items
-    
     if not request.items:
         raise HTTPException(status_code=400, detail="No track IDs provided.")
 
@@ -231,7 +228,12 @@ async def playlist(request: PlaylistRequest):
     """
     try:
         loop = asyncio.get_event_loop()
-
+        
+        df = pd.read_feather("fast_result.feather")
+        track_with_id_df = df[["track", "track_id"]]
+        config_path = "./BiEncoder/config.yaml"
+        config = OmegaConf.load(config_path)
+        
         def fetch_user_embedding():
             conn = get_postgresql_connection(dbname="embedding")
             cur = conn.cursor()
@@ -241,55 +243,56 @@ async def playlist(request: PlaylistRequest):
             cur.close()
             conn.close()
             if not row:
-                raise HTTPException(status_code=404, detail="User embedding not found in database.")
+                raise Exception("User embedding not found in database.")
             user_emb = row[0]
             return json.loads(user_emb) if isinstance(user_emb, str) else np.array(user_emb, dtype=float)
-
-        user_emb_task = loop.run_in_executor(None, fetch_user_embedding)
-        selected_track_ids_task = loop.run_in_executor(None, get_onboarding_track_ids, request.user_id)
-
-        user_emb, selected_track_ids = await asyncio.gather(user_emb_task, selected_track_ids_task)
-
-        def compute_candidates():
+        
+        def compute_candidate_track_ids(user_emb):
             ratings = compute_ratings(user_emb, item_embs)
             top_100_track_ids = inference(ratings, top_k=100)
             return top_100_track_ids
 
-        candidates_task = loop.run_in_executor(None, compute_candidates)
-
-        df = pd.read_feather("fast_result.feather")
-        track_with_id_df = df[["track", "track_id"]]
-        config_path = "./BiEncoder/config.yaml"
-        config = OmegaConf.load(config_path)
-
-        candidates_track_ids = await candidates_task
+        user_emb = await loop.run_in_executor(None, fetch_user_embedding)
+        candidates_track_ids = await loop.run_in_executor(None, compute_candidate_track_ids, user_emb)
 
         candidate_meta_task = loop.run_in_executor(None, get_candidate_meta, df, candidates_track_ids)
-        recommend_task = loop.run_in_executor(
-            None, recommend_songs, song_encoder, query_encoder, request.dict(), candidates_track_ids,
+
+        def selected_process():
+            selected_track_ids = get_onboarding_track_ids(request.user_id)
+            selected_meta_df = get_selected_meta(df, selected_track_ids)
+            artist_pref = list(set(selected_meta_df['artist'].to_numpy()))
+            return selected_track_ids, artist_pref
+        selected_task = loop.run_in_executor(None, selected_process)
+        
+        recommended_task = loop.run_in_executor(
+            None, recommend_songs, 
+            song_encoder, query_encoder, request.dict(), candidates_track_ids,
             "./BiEncoder/config.yaml", "./BiEncoder/src/song_query_model.pt", scaler, data_songs
         )
 
-        candidate_meta_df, recommended_track_ids = await asyncio.gather(candidate_meta_task, recommend_task)
+        candidate_meta_df = await candidate_meta_task
         candidate_meta_df.columns = ['track_id', 'track', 'listeners', 'img_url', 'artists', 'genres']
 
-        reranked_track_ids = recommended_track_ids
+        selected_track_ids, artist_pref = await selected_task
 
-        genre_pref = []
-        for tag in request.tag:
-            genre_pref.extend(config.clusters[tag]) 
+        def generate_final_df():
+            genre_pref = []
+            for tag in request.tag:
+                genre_pref.extend(config.clusters[tag])
+            df_final = generate_preference_reason(candidate_meta_df, genre_pref, artist_pref)
+            df_final = generate_popularity_score(df_final)
+            df_final = generate_npmi_score(track_with_id_df, df_final, selected_track_ids, candidates_track_ids, r)
+            df_final["description"] = df_final.apply(generate_description, axis=1)
+            return df_final
 
-        selected_meta_df = get_selected_meta(df, selected_track_ids)
-        artist_pref = list(set(selected_meta_df['artist'].to_numpy()))
+        final_df_task = loop.run_in_executor(None, generate_final_df)
+        final_df = await final_df_task
 
-        df = generate_preference_reason(candidate_meta_df, genre_pref, artist_pref)
-        df = generate_popularity_score(df)
-        df = generate_npmi_score(track_with_id_df, df, selected_track_ids, candidates_track_ids, r)
-        df["description"] = df.apply(generate_description, axis=1)
+        recommended_track_ids = await recommended_task
 
-        df_indexed = df.set_index('track_id')
-        sorted_df = df_indexed.loc[reranked_track_ids].reset_index()
-
+        df_indexed = final_df.set_index('track_id')
+        sorted_df = df_indexed.loc[recommended_track_ids].reset_index()
+        
         response_list = []
         for _, row in sorted_df.iterrows():
             response_list.append({
@@ -297,9 +300,9 @@ async def playlist(request: PlaylistRequest):
                 "track_name": row["track"],
                 "track_img_url": row["img_url"],
                 "artists": [{"artist_name": artist} for artist in row["artists"] if artist],
-                "description": row["description"] 
+                "description": row["description"]
             })
-
+        
         return response_list
 
     except Exception as e:
