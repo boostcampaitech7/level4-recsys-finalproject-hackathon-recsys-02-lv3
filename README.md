@@ -3,7 +3,17 @@
 <p align="center">
   <img src="https://github.com/user-attachments/assets/efde952e-0dbb-4923-809c-3ff57ee18bde" alt="로고 이미지" width="300">
 </p>
-
+<br>
+<p align="center">
+    <img src="https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=FastAPI&logoColor=white" alt="FastAPI badge">
+    <img src="https://img.shields.io/badge/React-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React badge">
+    <img src="https://img.shields.io/badge/PyTorch-EE4C2C?style=flat-square&logo=PyTorch&logoColor=white" alt="PyTorch badge">
+    <img src="https://img.shields.io/badge/Faiss-0467DF?style=flat-square&logo=meta&logoColor=white" alt="faiss badge">
+    <br>
+    <img src="https://img.shields.io/badge/MongoDB-47A248?style=flat-square&logo=mongodb&logoColor=white" alt="MongoDB badge">
+    <img src="https://img.shields.io/badge/postgresql-4169e1?style=flat-square&logo=postgresql&logoColor=white" alt="PostgreSQL badge">
+    <img src="https://img.shields.io/badge/Redis-DC382D?style=flat-square&logo=redis&logoColor=white" alt="Redis badge">
+  </p>
 <br><br><br>
 
 ## 프로젝트 설명
