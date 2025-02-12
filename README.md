@@ -14,7 +14,7 @@
     <img src="https://img.shields.io/badge/postgresql-4169e1?style=flat-square&logo=postgresql&logoColor=white" alt="PostgreSQL badge">
     <img src="https://img.shields.io/badge/Redis-DC382D?style=flat-square&logo=redis&logoColor=white" alt="Redis badge">
   </p>
-<br><br><br>
+<br><br>
 
 ## 프로젝트 설명
 **[🎶TuneyourShop으로 플레이리스트 추천받기](https://tuneyourshop.vercel.app/)**
