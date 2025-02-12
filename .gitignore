@@ -1,3 +1,21 @@
+.venv/
+data/
+__pycache__/
+*.py[cod]=
+.github/
+.cache/
+.myenv/
+*.pyc
+*.pkl
+download/
+transform/
+*.json
+*.ipynb
+LightGCN/embeddings/
+LightGCN/runs/
+LightGCN/checkpoints/
+logs/
+=======
 # Logs
 logs
 *.log
