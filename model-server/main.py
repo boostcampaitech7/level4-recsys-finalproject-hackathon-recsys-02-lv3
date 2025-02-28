@@ -10,6 +10,8 @@ import redis
 import psycopg2
 from tqdm import tqdm
 from omegaconf import OmegaConf
+import mlflow
+import mlflow.pytorch
 
 from fastapi import FastAPI, HTTPException
 
@@ -71,6 +73,16 @@ def load_redis_data():
     finally:
         conn.close()
 
+async def update_model():
+    """
+    일정 주기로 모델을 업데이트하는 백그라운드 태스크
+    """
+    global model, item_embs
+    while True:
+        print("Updating model from MLflow...")
+        model, item_embs = get_model()
+        print("Model updated successfully")
+        await asyncio.sleep(60 * 60 * 24 * 4)  
 
 @app.on_event("startup")
 async def load_model():
@@ -92,6 +104,7 @@ async def load_model():
     )
 
     print("All models loaded successfully")
+    loop.create_task(update_model())
 
 
 @app.post("/onboarding", response_model=OnboardingResponse)
@@ -117,7 +130,7 @@ async def onboarding(request: OnboardingData):
             raise HTTPException(status_code=404, detail="No tracks found for the given tags.")
 
         embedding_conn = get_postgresql_connection(dbname="embedding")
-        similarity_query = f"""
+        similarity_query = """
             SELECT
                 a.track_id AS track_id1,
                 b.track_id AS track_id2,

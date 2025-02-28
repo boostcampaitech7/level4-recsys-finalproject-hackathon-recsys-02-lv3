@@ -4,6 +4,7 @@ from LightGCN.code.batch_dataloader import Loader
 from LightGCN.code.model import LightGCN
 import numpy as np
 from omegaconf import OmegaConf
+import mlflow.pytorch
 
 config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "LightGCN", "config.yaml")
 CONFIG = OmegaConf.load(config_path)
@@ -13,12 +14,10 @@ def get_model():
     """
     모델 로드 및 아이템 임베딩 반환
     """
-    dataset = Loader(config=CONFIG, path="./data")
-    model = LightGCN(CONFIG, dataset)
-    checkpoint = torch.load('./LightGCN/checkpoints/best_model.pth', map_location=torch.device('cuda'))
-    model.load_state_dict(checkpoint)
+    model_uri = "models:/LightGCN/Production"  
+    model = mlflow.pytorch.load_model(model_uri)
 
-    # Item embeddings만 반환 (사용자 임베딩은 동적으로 계산)
+    # 모델의 아이템 임베딩 추출
     item_embs = model.embedding_item.weight
     return model, item_embs
 
